@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medium Scraper</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+        body {
+            background-color: black;
+            color: #d3d3d3;
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: rgba(34, 34, 34, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            width: 350px;
+        }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+        input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 20px;
+            border: none;
+            font-size: 1rem;
+            outline: none;
+        }
+        input {
+            background-color: #444;
+            color: white;
+        }
+        button {
+            background-color: white;
+            color: black;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        button:hover {
+            background-color: #d3d3d3;
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Medium Scraper</h1>
+        <form action="/scrape" method="post">
+            <input type="text" name="tag" placeholder="Enter Medium Tag" required>
+            <input type="number" name="pages" placeholder="Enter Number of Pages" required>
+            <button type="submit">Scrape Articles</button>
+        </form>
+    </div>
+</body>
+</html>
