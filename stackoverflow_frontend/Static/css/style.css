@@ -1,0 +1,71 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: black;
+    color: silver;
+    margin: 0;
+    padding: 0;
+}
+
+header {
+    background-color: silver;
+    color: black;
+    padding: 1em 0;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+}
+
+nav {
+    margin-top: 1em;
+}
+
+nav a {
+    color: black;
+    background-color: silver;
+    padding: 0.5em 1em;
+    text-decoration: none;
+    border-radius: 5px;
+    margin: 0 0.5em;
+}
+
+nav a:hover {
+    background-color: #333;
+    color: silver;
+}
+
+main {
+    padding: 2em;
+}
+
+footer {
+    text-align: center;
+    padding: 1em 0;
+    background-color: #333;
+    color: silver;
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+.data-table th, .data-table td {
+    border: 1px solid silver;
+    padding: 0.5em;
+    text-align: left;
+}
+
+.data-table th {
+    background-color: #333;
+    color: silver;
+}
+
+.data-table tr:nth-child(even) {
+    background-color: #444;
+}

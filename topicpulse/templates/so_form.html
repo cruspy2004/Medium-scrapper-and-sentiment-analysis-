@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TopicPulse - Stack Overflow Opportunity Finder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Stack Overflow Scraper</h1>
+            <a href="{{ url_for('index') }}" class="back-link">&larr; Back to Dashboard</a>
+        </header>
+
+        <form action="{{ url_for('stackoverflow.scan') }}" method="POST" class="scan-form">
+            <div class="form-group">
+                <label for="tags">Tags (comma-separated)</label>
+                <input type="text" id="tags" name="tags" placeholder="e.g. reactjs, vue, angular" required>
+            </div>
+            <div class="form-group">
+                <label for="pages">Pages per Tag</label>
+                <input type="number" id="pages" name="pages" value="2" min="1" max="10">
+            </div>
+            <button type="submit" class="btn">Scan for Content Gaps</button>
+        </form>
+    </div>
+</body>
+</html>

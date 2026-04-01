@@ -1,0 +1,517 @@
+================================================================
+TOPICPULSE — PROJECT BRIEF FOR ANTIGRAVITY
+================================================================
+Author: Muhammad Haadhee Sheeraz Mian
+
+Stack: Python · Flask · Gemini API · Pandas
+Version: 2.0 — Final Build
+================================================================
+
+
+================================================================
+WHAT IS THIS PROJECT?
+================================================================
+
+TopicPulse is a web-based content intelligence tool. A user enters
+a topic tag (e.g. "ai", "python", "llm") and the tool:
+
+1. Scrapes Medium articles related to that tag via RSS
+2. Scrapes Stack Overflow questions related to that tag via HTML
+3. Runs AI sentiment analysis on article titles using Google Gemini
+4. Ranks authors by influence (claps + responses)
+5. Identifies content gaps on Stack Overflow (high views, few answers)
+6. Displays everything on a dashboard with charts and CSV export
+
+The goal is to go from class project to a live, deployed, resume-worthy
+production tool hosted on Render.
+
+
+================================================================
+PRODUCT REQUIREMENTS DOCUMENT (PRD) — SUMMARY
+================================================================
+
+--- PROBLEM STATEMENT ---
+
+Content creators, developers, and researchers have no fast way to
+understand what's trending in a technical niche, who the key voices
+are, or what questions are going unanswered. They spend hours manually
+reading articles and forums.
+
+--- TARGET USERS ---
+
+- Indie developer / content creator: wants to know trending topics
+  to write about in a niche
+- Student researcher: needs to map community sentiment and key voices
+  for a study
+- Founder: wants to track whether sentiment around their topic is
+  positive or negative for timing content campaigns
+
+--- CORE USER STORIES ---
+
+"As a content creator, I want to enter a topic tag and see the top
+authors writing about it so I know who to follow and what's being
+covered."
+
+"As a developer, I want to search Stack Overflow by tag and find
+high-view questions with few answers, so I know where there are
+content gaps I can fill."
+
+"As a founder, I want to see whether sentiment around my topic is
+trending positive or negative so I can time my content campaigns."
+
+--- USER FLOW ---
+
+Step 1: User visits TopicPulse homepage
+Step 2: Chooses Medium or Stack Overflow
+Step 3: Enters tag(s) and page count
+Step 4: Clicks Scan
+Step 5: Views results dashboard (articles, authors, sentiment, summary)
+Step 6: Downloads CSV or views the unified cross-platform view
+
+
+================================================================
+FEATURE REQUIREMENTS
+================================================================
+
+--- P0 (MUST SHIP) ---
+
+1. Multi-tag batch ingestion
+   User enters comma-separated tags (e.g. "ai, python, llm").
+   Pipeline runs across all tags, deduplicates articles by URL,
+   merges metrics.
+
+2. Gemini-powered sentiment analysis
+   Each article title + excerpt is classified as POSITIVE, NEGATIVE,
+   or NEUTRAL with a confidence score (0.0–1.0) and a one-line reason
+   (max 10 words). TextBlob is the fallback if Gemini API fails.
+
+3. Author influence ranking
+   Score = (total_claps × 2) + total_responses
+   Ranked table showing: author name, article count, total claps,
+   total responses, influence score, profile link.
+
+4. Results dashboard
+   Flask-rendered page showing: sentiment donut chart (Chart.js),
+   top 10 authors table, article feed with sentiment badges,
+   topic summary card from Gemini.
+
+5. CSV export
+   Two exports per Medium scan:
+   - Article-level CSV: author, title, link, sentiment, confidence
+   - Author-level CSV: name, score, claps, responses, article count
+   One export for Stack Overflow scan: questions CSV.
+
+6. Stack Overflow integration
+   Scrape questions by tag. Return title, view count, answer count,
+   vote count, link. Surface unanswered high-view questions as an
+   "opportunity score" = views ÷ (answers + 1).
+
+--- P1 (HIGH VALUE) ---
+
+7. LLM topic summary
+   After scraping, send article titles to Gemini and get a 2–3 sentence
+   summary of "what this community is currently talking about."
+   Displayed at the top of the results page.
+
+8. Cross-platform unified view
+   Single results page showing Medium authors + Stack Overflow questions
+   side by side for the same topic.
+
+9. Opportunity score (Stack Overflow)
+   Score = views ÷ (answers + 1)
+   High score = high demand, low supply.
+   Surfaced as a ranked "content gap" list.
+
+--- P2 (NICE TO HAVE) ---
+
+10. Search history — store last 10 searches in localStorage
+11. Shareable result link — unique URL per scan result
+
+--- OUT OF SCOPE ---
+
+- User authentication or accounts
+- Twitter/X or Reddit scraping (future version)
+- Real-time live-updating dashboards (results are point-in-time)
+- Storing scan results in a database (session-only for now)
+
+
+================================================================
+TECHNICAL DESIGN DOCUMENT (DD) — SUMMARY
+================================================================
+
+--- SYSTEM ARCHITECTURE ---
+
+TopicPulse is a single Flask app with a 4-layer architecture.
+(The old class project used multiple ports — this version collapses
+everything into one unified app for clean production deployment.)
+
+Layer 1 — Presentation Layer
+  Technology: Jinja2 templates, Chart.js, Vanilla JS
+  Role: Flask renders HTML server-side. Chart.js handles the sentiment
+  donut chart and author bar chart on the client. No React — keeps the
+  stack simple and deploy-friendly.
+
+Layer 2 — Route Layer
+  Technology: Flask Blueprints (routes/medium.py, routes/stackoverflow.py)
+  Role: Route handlers are thin. They receive the request, call the
+  appropriate service function, and pass results to the template.
+  No business logic lives in route files.
+
+Layer 3 — Analysis Layer
+  Technology: analysis/sentiment.py, analysis/influence.py,
+              analysis/opportunity.py
+  Role: Gemini API calls for sentiment classification. Pandas
+  aggregations for author influence scoring and SO opportunity scoring.
+  TextBlob as fallback if Gemini is unavailable.
+
+Layer 4 — Data Layer
+  Technology: scrapers/medium.py, scrapers/stackoverflow.py,
+              concurrent.futures
+  Role: RSS/HTTP scraping with BeautifulSoup. Multi-tag batch runs use
+  ThreadPoolExecutor for parallel fetching. Results are normalized into
+  Pandas DataFrames before passing up to the analysis layer.
+
+--- FILE STRUCTURE ---
+
+topicpulse/
+├── app.py                    # Flask app factory, register blueprints
+├── config.py                 # ENV vars, constants
+├── requirements.txt
+├── Procfile                  # For Render deployment
+├── .env                      # GEMINI_API_KEY (never committed to git)
+│
+├── scrapers/
+│   ├── __init__.py
+│   ├── medium.py             # RSS fetch + BeautifulSoup parse
+│   └── stackoverflow.py      # HTML scrape + parse
+│
+├── analysis/
+│   ├── __init__.py
+│   ├── sentiment.py          # Gemini API calls + TextBlob fallback
+│   ├── influence.py          # Author ranking (Pandas)
+│   └── opportunity.py        # SO opportunity score (Pandas)
+│
+├── routes/
+│   ├── __init__.py
+│   ├── medium.py             # Blueprint: /medium/*
+│   └── stackoverflow.py      # Blueprint: /stackoverflow/*
+│
+├── templates/
+│   ├── index.html            # Landing page — choose platform
+│   ├── medium_form.html      # Tag input form
+│   ├── medium_results.html   # Dashboard: sentiment + authors
+│   ├── so_form.html
+│   └── so_results.html       # Opportunity score table
+│
+└── static/
+    ├── style.css
+    └── charts.js             # Chart.js initialization
+
+--- API ROUTES ---
+
+GET  /                        → Landing page (choose Medium or Stack Overflow)
+GET  /medium                  → Medium search form (tag input, page count)
+POST /medium/scan             → Trigger scrape + analysis; returns dashboard
+GET  /medium/export/articles  → Download article-level CSV from last scan
+GET  /medium/export/authors   → Download author-level CSV from last scan
+GET  /stackoverflow           → Stack Overflow search form
+POST /stackoverflow/scan      → Trigger SO scrape + opportunity scoring
+GET  /stackoverflow/export    → Download questions CSV from last SO scan
+
+--- DATA MODELS ---
+
+Article (Medium):
+{
+  "author":     str,      // e.g. "Andrej Karpathy"
+  "title":      str,      // Article title
+  "url":        str,      // Full Medium article URL
+  "claps":      int,      // Engagement metric
+  "responses":  int,      // Comment count
+  "tag":        str,      // Source tag (useful in batch mode)
+  "sentiment":  str,      // "POSITIVE" | "NEGATIVE" | "NEUTRAL"
+  "confidence": float,    // 0.0 - 1.0, from Gemini
+  "reason":     str       // Max 10-word explanation from Gemini
+}
+
+Author (aggregated):
+{
+  "author":          str,
+  "article_count":   int,
+  "total_claps":     int,
+  "total_responses": int,
+  "influence_score": float,   // (claps × 2) + responses
+  "profile_url":     str      // medium.com/@{author_slug}
+}
+
+Stack Overflow Question:
+{
+  "title":             str,
+  "url":               str,
+  "views":             int,
+  "answers":           int,
+  "votes":             int,
+  "tags":              list[str],
+  "opportunity_score": float    // views ÷ (answers + 1)
+}
+
+Scan Result (passed to template):
+{
+  "topic":             str,           // Joined tags string
+  "articles":          list[Article],
+  "authors":           list[Author],  // Sorted by influence_score desc
+  "sentiment_summary": {
+    "positive":        int,
+    "negative":        int,
+    "neutral":         int,
+    "overall":         str            // Dominant sentiment
+  },
+  "llm_summary":       str,           // Gemini-generated topic summary
+  "scan_time_seconds": float
+}
+
+--- GEMINI INTEGRATION ---
+
+Sentiment classification (batch call):
+- Send up to 10 article titles per API call to minimize latency
+- Prompt asks Gemini to return a JSON array with sentiment, confidence,
+  and a max-10-word reason for each title
+- If Gemini API fails for any reason, fall back to TextBlob
+
+Code (analysis/sentiment.py):
+
+  import google.generativeai as genai
+  import json, os
+  from textblob import TextBlob
+
+  genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+  model = genai.GenerativeModel("gemini-1.5-flash")
+
+  def classify_sentiment_batch(titles: list[str]) -> list[dict]:
+      prompt = f"""
+  Classify the sentiment of each article title below.
+  Return a JSON array only — no markdown, no explanation.
+  Each item: {{"sentiment": "POSITIVE"|"NEGATIVE"|"NEUTRAL",
+               "confidence": 0.0-1.0, "reason": "max 10 words"}}
+  Titles: {json.dumps(titles)}
+  """
+      try:
+          response = model.generate_content(prompt)
+          return json.loads(response.text)
+      except Exception:
+          return [_textblob_fallback(t) for t in titles]
+
+  def _textblob_fallback(title: str) -> dict:
+      polarity = TextBlob(title).sentiment.polarity
+      sentiment = "POSITIVE" if polarity > 0 else \
+                  "NEGATIVE" if polarity < 0 else "NEUTRAL"
+      return {"sentiment": sentiment,
+              "confidence": abs(polarity),
+              "reason": "TextBlob fallback"}
+
+Topic summary call:
+- Called once per scan with up to 30 article titles
+- Gemini returns a 2–3 sentence summary of what the community is
+  currently discussing, problems being solved, and overall tone
+
+  def generate_topic_summary(topic: str, titles: list[str]) -> str:
+      prompt = f"""
+  You are analyzing content about "{topic}".
+  Here are recent article titles from Medium on this topic:
+  {json.dumps(titles[:30])}
+  In exactly 2-3 sentences, summarize what this community is currently
+  discussing, what problems they are solving, and whether the overall
+  tone is optimistic or concerned. Be specific and direct.
+  """
+      try:
+          response = model.generate_content(prompt)
+          return response.text.strip()
+      except Exception:
+          return "Summary unavailable."
+
+--- SCRAPER SPECIFICATIONS ---
+
+Medium Scraper (scrapers/medium.py):
+- Fetches Medium RSS feed: https://medium.com/feed/tag/{tag}
+- Parses with BeautifulSoup (xml mode)
+- Extracts: author (dc:creator), title, URL
+- Claps and responses are set to 0 (RSS doesn't include them)
+- Multi-tag batch uses ThreadPoolExecutor (max 5 workers)
+- Results deduplicated by URL in Pandas
+
+  MEDIUM_RSS = "https://medium.com/feed/tag/{tag}"
+
+  def scrape_tag(tag: str, pages: int = 1) -> list[dict]:
+      url = MEDIUM_RSS.format(tag=tag.strip().lower())
+      response = requests.get(url, timeout=10,
+                              headers={"User-Agent": "Mozilla/5.0"})
+      soup = BeautifulSoup(response.content, "xml")
+      articles = []
+      for item in soup.find_all("item"):
+          articles.append({
+              "author":    item.find("dc:creator").text,
+              "title":     item.title.text,
+              "url":       item.link.text,
+              "claps":     0,
+              "responses": 0,
+              "tag":       tag,
+              "sentiment": None,
+              "confidence":None,
+              "reason":    None
+          })
+      return articles
+
+  def scrape_tags_batch(tags: list[str], pages: int = 1) -> pd.DataFrame:
+      with ThreadPoolExecutor(max_workers=5) as executor:
+          results = list(executor.map(lambda t: scrape_tag(t, pages), tags))
+      flat = [a for tag_result in results for a in tag_result]
+      return pd.DataFrame(flat).drop_duplicates(subset=["url"])
+
+Stack Overflow Scraper (scrapers/stackoverflow.py):
+- Scrapes HTML from: https://stackoverflow.com/questions/tagged/{tag}
+- Parses question title, votes, answers, views
+- Calculates opportunity_score = views / (answers + 1)
+
+  SO_BASE = "https://stackoverflow.com/questions/tagged/{tag}?tab=votes&page={page}"
+
+  def scrape_tag(tag: str, pages: int = 2) -> list[dict]:
+      questions = []
+      for page in range(1, pages + 1):
+          url = SO_BASE.format(tag=tag, page=page)
+          r = requests.get(url, timeout=10,
+                           headers={"User-Agent": "Mozilla/5.0"})
+          soup = BeautifulSoup(r.content, "html.parser")
+          for q in soup.select(".s-post-summary"):
+              title_el  = q.select_one(".s-post-summary--content-title a")
+              stats     = q.select(".s-post-summary--stats-item-number")
+              views_str = q.select_one("[title*='views']")
+              votes   = int(stats[0].text.replace(",","")) if stats else 0
+              answers = int(stats[1].text.replace(",","")) if len(stats)>1 else 0
+              views   = int(views_str["title"].split()[0].replace(",","")) \
+                        if views_str else 0
+              questions.append({
+                  "title":             title_el.text.strip() if title_el else "",
+                  "url":               "https://stackoverflow.com" +
+                                       title_el["href"] if title_el else "",
+                  "votes":             votes,
+                  "answers":           answers,
+                  "views":             views,
+                  "opportunity_score": round(views / (answers + 1), 1)
+              })
+      return questions
+
+--- AUTHOR INFLUENCE SCORE FORMULA ---
+
+  influence_score = (total_claps × 2) + total_responses
+
+  author_df = articles_df.groupby('author').agg(
+      total_claps=('claps', 'sum'),
+      total_responses=('responses', 'sum'),
+      article_count=('title', 'count')
+  ).reset_index()
+
+  author_df['influence_score'] = (author_df['total_claps'] * 2) + \
+                                  author_df['total_responses']
+  author_df = author_df.sort_values('influence_score', ascending=False)
+
+--- DEPENDENCIES (requirements.txt) ---
+
+flask==3.0.3
+requests==2.31.0
+beautifulsoup4==4.12.3
+lxml==5.2.1              # XML parser for RSS feeds
+pandas==2.2.2
+textblob==0.18.0         # Sentiment fallback
+google-generativeai==0.7.2
+python-dotenv==1.0.1
+gunicorn==22.0.0         # Production WSGI server (Render)
+
+--- ENVIRONMENT & DEPLOYMENT ---
+
+Environment Variables (set in Render dashboard, NEVER in git):
+  GEMINI_API_KEY   = Your Google AI Pro key
+  FLASK_ENV        = production
+  SECRET_KEY       = Random string (for Flask session)
+
+Procfile:
+  web: gunicorn app:app
+
+render.yaml (optional):
+  services:
+    - type: web
+      name: topicpulse
+      env: python
+      buildCommand: pip install -r requirements.txt
+      startCommand: gunicorn app:app
+      envVars:
+        - key: GEMINI_API_KEY
+          sync: false
+
+IMPORTANT: Never commit .env to GitHub. Add it to .gitignore immediately.
+
+--- NON-FUNCTIONAL REQUIREMENTS ---
+
+Performance:
+  - Single-tag scan (1 page, ~15 articles): complete under 15 seconds
+    including Gemini API calls
+  - Multi-tag batch (3 tags): complete under 45 seconds
+  - Use concurrent.futures for parallel tag fetching
+
+Reliability:
+  - All scraping functions must have try/except with graceful degradation
+  - If Medium RSS returns 403: surface a clear error message
+  - If Gemini API fails: fall back to TextBlob, flag as "basic sentiment"
+
+Code Quality:
+  - Scraping logic in scrapers/ module only
+  - Route handlers in routes/ only (no business logic in routes)
+  - Analysis logic in analysis/ only
+
+--- SUCCESS METRICS ---
+
+  - Single tag scan time: < 15 seconds
+  - Data points per batch run: 300+
+  - Platforms integrated: 2 (Medium + Stack Overflow)
+  - Live public URL on Render
+  - Clean README with demo GIF
+  - Listed on resume as a live, working tool
+
+--- BUILD PHASES ---
+
+Phase 1 — Refactor (- 1)
+  - Collapse multi-port architecture into single Flask app with Blueprints
+  - Separate scrapers, analysis, and routes into proper modules
+  - Add config.py and python-dotenv for env var management
+  - Verify existing Medium RSS scraper still works end-to-end
+
+Phase 2 — Gemini integration (- 1-2)
+  - Install google-generativeai, wire up API key
+  - Implement classify_sentiment_batch() with TextBlob fallback
+  - Implement generate_topic_summary()
+  - Test both functions independently before wiring into routes
+
+Phase 3 — Multi-tag batch mode (- 2)
+  - Update Medium form to accept comma-separated tags
+  - Implement scrape_tags_batch() with ThreadPoolExecutor
+  - Deduplicate articles by URL in Pandas before analysis
+  - Verify 300+ data points produced in a 3-tag run
+
+Phase 4 — Stack Overflow + unified view (- 2-3)
+  - Refactor SO scraper into scrapers/stackoverflow.py
+  - Add opportunity score calculation in analysis/opportunity.py
+  - Build unified results page showing both platforms side by side
+
+Phase 5 — UI polish + deploy (- 3-4)
+  - Build clean dashboard templates with Chart.js sentiment donut
+  - Add CSV export for all result types
+  - Write README with demo GIF (record with OBS or Loom)
+  - Deploy to Render, verify live URL, add to resume and GitHub
+
+Definition of Done:
+  Live public URL. Clean README with one demo GIF. GitHub repo with
+  proper .gitignore. Both scrapers working end-to-end. Gemini sentiment
+  running. CSV export working. The tool is on the resume as a live,
+  working product — not a class project.
+
+================================================================
+END OF DOCUMENT
+================================================================

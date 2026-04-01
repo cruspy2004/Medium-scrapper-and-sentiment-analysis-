@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TopicPulse - Stack Overflow Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Opportunity Results for "{{ topic }}"</h1>
+            <p class="meta">Scan completed in {{ scan_time_seconds }}s. Showing top questions with high views and few answers.</p>
+            <div class="actions">
+                <a href="{{ url_for('stackoverflow.index') }}" class="btn secondary">New Scan</a>
+                <a href="{{ url_for('stackoverflow.export_csv', scan_id=scan_id) }}" class="btn">Download CSV</a>
+            </div>
+        </header>
+
+        {% if error %}
+            <div class="error-card">{{ error }}</div>
+        {% else %}
+            <div class="card">
+                <h2>Top Opportunities</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Question Title</th>
+                            <th>Opportunity Score</th>
+                            <th>Views</th>
+                            <th>Answers</th>
+                            <th>Votes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for q in questions %}
+                        <tr>
+                            <td><a href="{{ q.url }}" target="_blank">{{ q.title }}</a></td>
+                            <td><span class="badge score-badge">{{ q.opportunity_score }}</span></td>
+                            <td>{{ q.views | default(0) }}</td>
+                            <td>{{ q.answers | default(0) }}</td>
+                            <td>{{ q.votes | default(0) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

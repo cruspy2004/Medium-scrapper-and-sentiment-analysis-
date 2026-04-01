@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scraping Results</title>
+    <style>
+        body {
+            background-color: black;
+            color: #d3d3d3;
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            width: 300px;
+        }
+        .result {
+            margin: 10px 0;
+        }
+        a {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: white;
+            color: black;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        a:hover {
+            background-color: #444;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Results for "{{ tag }}"</h1>
+        <p class="result">Total Responses: {{ total_responses }}</p>
+        <p class="result">Positive Sentiment: {{ total_positive }}</p>
+        <p class="result">Negative Sentiment: {{ total_negative }}</p>
+        <p class="result">Neutral Sentiment: {{ total_neutral }}</p>
+        <p class="result">Overall Sentiment: {{ overall_sentiment }}</p>
+        <a href="/output/{{ csv_filename }}">Download CSV</a>
+    </div>
+</body>
+</html>

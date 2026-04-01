@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TopicPulse - Content Intelligence</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container landing-container">
+        <header class="hero">
+            <h1>TopicPulse</h1>
+            <p>Your unified content intelligence dashboard. Discover trending content, map key voices, and identify gaps.</p>
+        </header>
+
+        <main class="platform-cards">
+            <a href="{{ url_for('medium.index') }}" class="card medium-card">
+                <h2>Medium Scraper</h2>
+                <p>Track trending authors, analyze sentiment, and map engagement on Medium topics.</p>
+            </a>
+            <a href="{{ url_for('stackoverflow.index') }}" class="card so-card">
+                <h2>Stack Overflow Scraper</h2>
+                <p>Find unanswered, high-view questions to identify content creation opportunities.</p>
+            </a>
+        </main>
+    </div>
+</body>
+</html>

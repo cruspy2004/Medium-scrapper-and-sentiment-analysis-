@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TopicPulse - Medium Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Load Chart.js for sentiment donut -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Results for "{{ topic }}"</h1>
+            <p class="meta">Scan completed in {{ scan_time_seconds }}s.</p>
+            <div class="actions">
+                <a href="{{ url_for('medium.index') }}" class="btn secondary">New Scan</a>
+                <a href="{{ url_for('medium.export_articles', scan_id=scan_id) }}" class="btn">Download Articles CSV</a>
+                <a href="{{ url_for('medium.export_authors', scan_id=scan_id) }}" class="btn">Download Authors CSV</a>
+            </div>
+        </header>
+
+        {% if error %}
+            <div class="error-card">{{ error }}</div>
+        {% else %}
+            <!-- Summary Area -->
+            <div class="grid col-2">
+                <div class="card">
+                    <h2>AI Topic Summary (Gemini)</h2>
+                    <p class="llm-summary">{{ llm_summary }}</p>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <h2>Overall Sentiment</h2>
+                    <div class="chart-container">
+                        <canvas id="sentimentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Authors Ranking -->
+            <div class="card">
+                <h2>Top Authors by Influence</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Author</th>
+                            <th>Articles</th>
+                            <th>Claps</th>
+                            <th>Responses</th>
+                            <th>Influence Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in authors %}
+                        <tr>
+                            <td><a href="{{ a.profile_url }}" target="_blank">{{ a.author }}</a></td>
+                            <td>{{ a.article_count }}</td>
+                            <td>{{ a.total_claps }}</td>
+                            <td>{{ a.total_responses }}</td>
+                            <td><strong>{{ a.influence_score }}</strong></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Article Feed -->
+            <div class="card">
+                <h2>Recent Articles</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Sentiment</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for art in articles %}
+                        <tr>
+                            <td>
+                                <a href="{{ art.url }}" target="_blank">{{ art.title }}</a>
+                                <div class="meta">{{ art.author }} &bull; {{ art.reason }}</div>
+                            </td>
+                            <td>
+                                <span class="badge sentiment-{{ art.sentiment | lower }}">{{ art.sentiment }}</span>
+                            </td>
+                            <td>{{ art.confidence }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Hidden data for Chart.js -->
+    {% if not error %}
+    <script id="chartData" type="application/json">
+        {{ sentiment_summary | tojson }}
+    </script>
+    <script src="{{ url_for('static', filename='charts.js') }}"></script>
+    {% endif %}
+</body>
+</html>
