@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TopicPulse — Results for "{{ topic }}"</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container results-container">
+        <!-- Header -->
+        <header class="results-header">
+            <a href="{{ url_for('index') }}" class="back-link">&larr; New Scan</a>
+            <h1>Content Gaps for <span class="topic-highlight">"{{ topic }}"</span></h1>
+            <p class="meta">Scan completed in {{ scan_time_seconds }}s &bull; {{ total_articles }} articles &bull; {{ total_questions }} questions analyzed</p>
+            <div class="actions">
+                {% if scan_id %}
+                <a href="{{ url_for('scan.export_articles', scan_id=scan_id) }}" class="btn btn-secondary btn-sm">Export Articles CSV</a>
+                <a href="{{ url_for('scan.export_questions', scan_id=scan_id) }}" class="btn btn-secondary btn-sm">Export Questions CSV</a>
+                {% endif %}
+            </div>
+        </header>
+
+        {% if error %}
+            <div class="error-card">{{ error }}</div>
+        {% else %}
+
+        <!-- Scan Summary -->
+        <div class="summary-bar">
+            <div class="summary-stat">
+                <span class="summary-value">{{ total_articles }}</span>
+                <span class="summary-label">Medium Articles</span>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-value">{{ total_questions }}</span>
+                <span class="summary-label">SO Questions</span>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-value sentiment-color-{{ sentiment_summary.get('positive', 0) > sentiment_summary.get('negative', 0) and 'positive' or (sentiment_summary.get('negative', 0) > sentiment_summary.get('positive', 0) and 'negative' or 'neutral') }}">
+                    {% if sentiment_summary.get('positive', 0) > sentiment_summary.get('negative', 0) %}POSITIVE
+                    {% elif sentiment_summary.get('negative', 0) > sentiment_summary.get('positive', 0) %}NEGATIVE
+                    {% else %}NEUTRAL{% endif %}
+                </span>
+                <span class="summary-label">Dominant Sentiment</span>
+            </div>
+            <div class="summary-stat">
+                <span class="summary-value">{{ gaps[0].gap_score if gaps else 'N/A' }}</span>
+                <span class="summary-label">Top Gap Score</span>
+            </div>
+        </div>
+
+        <!-- Main Content Grid -->
+        <div class="results-grid">
+            <!-- Left: Gap Cards -->
+            <div class="gaps-column">
+                <h2 class="section-title">Top Content Gaps</h2>
+                {% if gaps %}
+                    {% for gap in gaps %}
+                    <div class="gap-card" data-gap-index="{{ loop.index0 }}">
+                        <div class="gap-card-header">
+                            <div class="gap-rank">#{{ loop.index }}</div>
+                            <div class="gap-info">
+                                <h3 class="gap-title">{{ gap.gap_title }}</h3>
+                                <div class="gap-meta">
+                                    {{ gap.article_count }} articles &bull; 
+                                    <span class="sentiment-{{ gap.sentiment_signal|lower }}">{{ gap.sentiment_signal }}</span> sentiment
+                                </div>
+                            </div>
+                            <div class="gap-score-badge">
+                                <span class="score-value">{{ gap.gap_score }}</span>
+                                <span class="score-label">gap score</span>
+                            </div>
+                        </div>
+                        <div class="gap-card-body">
+                            <div class="gap-signals">
+                                <div class="signal">
+                                    <span class="signal-label">SO Demand</span>
+                                    <div class="signal-bar">
+                                        <div class="signal-fill so-fill" style="width: {{ (gap.so_signal * 100)|round }}%"></div>
+                                    </div>
+                                    <span class="signal-value">{{ gap.so_signal }}</span>
+                                </div>
+                                <div class="signal">
+                                    <span class="signal-label">Difficulty</span>
+                                    <div class="difficulty-dots">
+                                        {% for i in range(5) %}
+                                        <span class="dot {{ 'active' if i < gap.difficulty else '' }}"></span>
+                                        {% endfor %}
+                                    </div>
+                                    <span class="signal-value">{{ gap.difficulty }}/5</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-brief" onclick="loadBrief({{ loop.index0 }})">
+                                Generate Brief →
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>No content gaps found. Try different topics or broader tags.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Right: Sidebar -->
+            <div class="sidebar-column">
+                <!-- Sentiment Donut -->
+                <div class="card sidebar-card">
+                    <h3>Sentiment Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="sentimentChart"></canvas>
+                    </div>
+                    <div class="sentiment-legend">
+                        <span class="legend-item"><span class="legend-dot positive"></span> Positive: {{ sentiment_summary.get('positive', 0) }}</span>
+                        <span class="legend-item"><span class="legend-dot negative"></span> Negative: {{ sentiment_summary.get('negative', 0) }}</span>
+                        <span class="legend-item"><span class="legend-dot neutral"></span> Neutral: {{ sentiment_summary.get('neutral', 0) }}</span>
+                    </div>
+                </div>
+
+                <!-- Top SO Questions -->
+                <div class="card sidebar-card">
+                    <h3>Top Unanswered Questions</h3>
+                    {% if all_questions %}
+                        <ul class="so-questions-list">
+                        {% for q in all_questions[:5] %}
+                            <li class="so-question">
+                                <a href="{{ q.url }}" target="_blank" class="so-q-title">{{ q.title }}</a>
+                                <div class="so-q-stats">
+                                    <span>{{ q.views|default(0) }} views</span>
+                                    <span>{{ q.answers|default(0) }} answers</span>
+                                    <span class="opp-score">{{ q.opportunity_score|default(0) }} opp</span>
+                                </div>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">No Stack Overflow questions found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% endif %}
+    </div>
+
+    <!-- Brief Modal (hidden by default) -->
+    <div class="modal-overlay" id="brief-modal-overlay" onclick="closeModal(event)">
+        <div class="modal" id="brief-modal" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closeBriefModal()">&times;</button>
+            <div id="brief-content">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Pass gap data to JS -->
+    {% if not error %}
+    <script id="gapsData" type="application/json">
+        {{ gaps_json|safe }}
+    </script>
+    <script id="chartData" type="application/json">
+        {{ sentiment_summary|tojson }}
+    </script>
+    {% endif %}
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

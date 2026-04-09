@@ -3,27 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TopicPulse - Content Intelligence</title>
+    <title>TopicPulse — Content Gap Finder</title>
+    <meta name="description" content="Type a topic. Get the 5 things you should write about this week — and a full brief for each one.">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container landing-container">
-        <header class="hero">
-            <h1>TopicPulse</h1>
-            <p>Your unified content intelligence dashboard. Discover trending content, map key voices, and identify gaps.</p>
-        </header>
+    <div class="landing">
+        <div class="landing-glow"></div>
+        <div class="container landing-container">
+            <header class="hero">
+                <div class="hero-badge">Content Gap Finder</div>
+                <h1>TopicPulse</h1>
+                <p class="hero-subtitle">Type a topic. Get the 5 things you should write about this week — and a full brief for each one.</p>
+            </header>
 
-        <main class="platform-cards">
-            <a href="{{ url_for('medium.index') }}" class="card medium-card">
-                <h2>Medium Scraper</h2>
-                <p>Track trending authors, analyze sentiment, and map engagement on Medium topics.</p>
-            </a>
-            <a href="{{ url_for('stackoverflow.index') }}" class="card so-card">
-                <h2>Stack Overflow Scraper</h2>
-                <p>Find unanswered, high-view questions to identify content creation opportunities.</p>
-            </a>
-        </main>
+            <form action="{{ url_for('scan.scan') }}" method="POST" class="scan-form" id="scan-form">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="tags" 
+                        name="tags" 
+                        placeholder="e.g. vector databases, rag, embeddings" 
+                        required
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="btn btn-primary" id="scan-btn">
+                        <span class="btn-text">Find Content Gaps</span>
+                        <span class="btn-loader" style="display:none;">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                            </svg>
+                            Scanning...
+                        </span>
+                    </button>
+                </div>
+                <input type="hidden" name="pages" value="1">
+                <p class="input-hint">Comma-separated topics. We'll cross-reference Medium + Stack Overflow in real time.</p>
+            </form>
+
+            <div class="how-it-works">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Scan</h3>
+                        <p>Medium articles + Stack Overflow questions scraped in parallel</p>
+                    </div>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Score</h3>
+                        <p>AI sentiment + demand signals cross-referenced into gap scores</p>
+                    </div>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Brief</h3>
+                        <p>Click any gap — get a full AI-generated content brief instantly</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <script>
+        document.getElementById('scan-form').addEventListener('submit', function() {
+            const btn = document.getElementById('scan-btn');
+            btn.querySelector('.btn-text').style.display = 'none';
+            btn.querySelector('.btn-loader').style.display = 'inline-flex';
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+        });
+    </script>
 </body>
 </html>

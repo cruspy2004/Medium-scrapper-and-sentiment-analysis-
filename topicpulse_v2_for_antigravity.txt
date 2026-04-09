@@ -1,0 +1,624 @@
+================================================================
+TOPICPULSE v2.0 — PROJECT BRIEF FOR ANTIGRAVITY
+================================================================
+Author: Muhammad Haadhee Sheeraz Mian | Reg No: 478359
+NUST SEECS · BSCS Class of 2027
+Stack: Python · Flask · Gemini API · Pandas
+Version: 2.0 — Content Gap Finder
+Status: Active Development
+================================================================
+
+
+================================================================
+WHAT IS THIS PROJECT? (READ THIS FIRST)
+================================================================
+
+TopicPulse v2 is a CONTENT GAP FINDER — this is a significant
+upgrade from v1 (which was a general topic analysis dashboard).
+
+The new core idea: a user types any topic (e.g. "vector databases"),
+and the tool cross-references TWO signals to surface the 5 best
+content opportunities:
+
+  Signal 1 — Medium saturation:
+    How much content already exists on this topic?
+    What is the community sentiment — are writers positive or
+    frustrated? High volume + positive = crowded. Low volume or
+    negative sentiment = opportunity.
+
+  Signal 2 — Stack Overflow demand:
+    How many people are asking questions that aren't getting answered?
+    Opportunity score = views / (answers + 1).
+    A question with 50,000 views and 1 answer = screaming demand.
+
+These two signals are combined into a single "Content Gap Score"
+(0.0–1.0). The top 5 gaps are displayed. The user can click any gap
+to get a full AI-generated content brief: suggested title, target
+audience, key points to cover, top unanswered questions to address,
+and a difficulty-to-rank score.
+
+One-line pitch:
+"Type a topic. Get the 5 things you should write about this week
+— and a full brief for each one."
+
+
+================================================================
+KEY CHANGE FROM v1
+================================================================
+
+v1 was: scrape Medium + Stack Overflow → show sentiment dashboard
+        + author ranking → export CSV.
+
+v2 IS: scrape Medium + Stack Overflow → compute content gap scores
+       → show ranked gap list → click any gap → Gemini generates
+       a full content brief on the fly (no page reload).
+
+The old author influence ranking and separate Medium/SO pages are
+GONE. Everything is now a unified single-topic scan that outputs
+ranked content opportunities.
+
+
+================================================================
+PRODUCT REQUIREMENTS (PRD v2)
+================================================================
+
+--- THE CONTENT GAP SCORE FORMULA ---
+
+gap_score = (so_opportunity_score × 0.6)
+          + (sentiment_penalty × 0.3)
+          + (volume_penalty × 0.1)
+
+Where:
+  so_opportunity_score = views / (answers + 1), normalized to 0–1
+  sentiment_penalty    = 1.0 if NEGATIVE, 0.5 if NEUTRAL,
+                         0.0 if POSITIVE
+  volume_penalty       = 1 - (article_count / max_article_count)
+
+Weights: Stack Overflow demand is the strongest signal (60%).
+Existing sentiment on Medium is meaningful (30%).
+Raw article volume is a minor tiebreaker (10%).
+All components are normalized to 0–1 before weighting.
+
+Difficulty score (shown on brief):
+  difficulty = inverse of gap_score, mapped to a 1–5 scale.
+  High gap = low difficulty to rank (bar is low, content is poor).
+  Low gap = high difficulty (well covered, hard to compete).
+
+Decision matrix (when to write):
+  High SO opportunity + Negative/Neutral sentiment + Low volume
+    → WRITE THIS (high demand, nobody's cracked it yet)
+  High SO opportunity + Positive sentiment + Medium volume
+    → WRITE THIS (demand is real, appetite for more)
+  Medium SO opportunity + Negative sentiment + High volume
+    → WRITE IF YOU HAVE A NEW ANGLE (crowded but disappointing)
+  Low SO opportunity + Positive sentiment + High volume
+    → SKIP (saturated, no gap)
+  Low SO opportunity + Any sentiment + Low volume
+    → SKIP (no demand)
+
+--- TARGET USERS ---
+
+1. Developers who create content
+   Write tutorials and blog posts. Want to know which topics will
+   get traction before spending hours writing. Care about Stack
+   Overflow demand because their audience lives there.
+
+2. Technical founders / indie hackers
+   Building in public, using content for distribution. Need to move
+   fast — full brief in one click = idea to outline in minutes.
+
+3. Content strategists at dev tools companies
+   Run a weekly topic scan on any cluster, turn it into a
+   prioritized content calendar based on real demand data.
+
+--- USER STORIES ---
+
+Developer: "I want to type a topic and immediately see which
+subtopics are underserved so I can write something that will
+actually get read — not compete with 500 existing articles."
+
+Technical founder: "I want a full content brief generated for the
+best gap so I can hand it to a writer or start drafting immediately
+— without spending an hour on research."
+
+Content strategist: "I want to run a weekly topic scan and export
+the results so I can build a prioritized content calendar based on
+real demand data, not assumptions."
+
+--- PROBLEM STATEMENT ---
+
+Developers and content creators waste significant time deciding what
+to write about. Existing tools are either expensive (BuzzSumo,
+SparkToro), keyword-only (AnswerThePublic, Ahrefs), or require
+manual cross-referencing across multiple platforms.
+
+No tool combines community sentiment analysis from a long-form
+writing platform WITH unanswered demand signals from a technical
+Q&A platform to produce a ranked, actionable content opportunity
+list — with a generated brief attached. TopicPulse does exactly this.
+
+--- FEATURE REQUIREMENTS ---
+
+P0 — MUST SHIP:
+
+1. Topic input
+   Single text field. User enters a topic (e.g. "vector databases").
+   Comma-separated for multi-tag batch (e.g. "rag, vector databases,
+   embeddings").
+
+2. Parallel scrape
+   Medium RSS + Stack Overflow scraped simultaneously using
+   ThreadPoolExecutor. Both complete before results render.
+
+3. Gemini sentiment
+   Batch sentiment classification on Medium article titles.
+   Returns POSITIVE / NEGATIVE / NEUTRAL + confidence score.
+   TextBlob fallback if Gemini API is unavailable.
+
+4. Content gap list
+   Ranked list of top 5 content gaps. Each card shows:
+   gap title (Gemini-generated subtopic label), gap score,
+   difficulty rating, SO demand signal, Medium sentiment signal.
+
+5. Content brief drill-down
+   Click any gap card → full brief generated fresh via Gemini
+   (client-side fetch(), no page reload). See Brief spec below.
+   Brief is generated on click, NOT pre-cached.
+
+6. CSV export
+   Export full scan data:
+   - Articles: author, title, sentiment, URL
+   - Questions: title, views, answers, opportunity score, URL
+
+P1 — HIGH VALUE:
+
+7. Scan summary card
+   At top of results: total articles found, total questions found,
+   dominant sentiment, top gap score. Immediate context before
+   reading individual gap cards.
+
+8. Sentiment donut chart
+   Chart.js visualization of positive/negative/neutral distribution
+   across all Medium articles in the scan.
+
+9. Top unanswered questions panel
+   Separate panel listing top 5 Stack Overflow questions by
+   opportunity score. Direct links. Shown alongside gap cards
+   as supporting evidence.
+
+P2 — NICE TO HAVE:
+
+10. Search history
+    Last 5 scans stored in browser localStorage. Re-run or compare.
+
+11. Brief export
+    Download any generated brief as a Markdown file for use in
+    Notion or Obsidian.
+
+--- OUT OF SCOPE ---
+
+- User accounts or saved briefs server-side
+- Reddit, Dev.to scraping (future version)
+- Real-time/scheduled scans (results are point-in-time snapshots)
+- Monetization
+- Mobile app
+
+--- SUCCESS METRICS ---
+
+- Full scan time (steps 1–5): under 20 seconds
+- Brief generation (step 6): under 8 seconds
+- Ranked gaps per scan: 5
+- Definition of done: public URL live on Render, demo GIF in README,
+  a non-technical person can run a full scan and get a useful brief
+  in under 30 seconds total.
+
+
+================================================================
+TECHNICAL DESIGN DOCUMENT (DD v2)
+================================================================
+
+--- SYSTEM ARCHITECTURE ---
+
+Single Flask app with 4 layers.
+
+KEY ARCHITECTURAL DECISION: Gap scoring and brief generation are
+SEPARATE CONCERNS.
+- Scoring happens server-side at scan time (POST /scan).
+- Brief generation happens ON-DEMAND per click (POST /brief).
+  This is a client-side fetch() call — no page reload.
+
+Layer 1 — Presentation Layer
+  Technology: Jinja2 templates, Chart.js, Vanilla JS fetch()
+  Role: Flask renders the gap list at scan time. Brief drill-down
+  uses fetch() to call /brief and injects the result into a modal
+  panel. No React — keeps the stack simple.
+
+Layer 2 — Route Layer
+  Technology: Flask Blueprints (routes/scan.py, routes/brief.py)
+  Role: Two blueprints.
+    scan  — full pipeline: scrape, analyse, score, render.
+    brief — single POST that receives gap context, returns
+            Gemini-generated brief as JSON.
+
+Layer 3 — Analysis Layer
+  Technology: analysis/sentiment.py, analysis/gap_score.py,
+              analysis/brief.py
+  Role: Sentiment classification (Gemini batch + TextBlob fallback).
+  Gap score computation (Pandas). Brief generation (Gemini,
+  on-demand). All pure functions — no Flask imports.
+
+Layer 4 — Data Layer
+  Technology: scrapers/medium.py, scrapers/stackoverflow.py,
+              concurrent.futures
+  Role: Both scrapers run in parallel via ThreadPoolExecutor.
+  Each returns a normalized list of dicts that gets converted to a
+  Pandas DataFrame before passing to the analysis layer.
+
+--- FILE STRUCTURE ---
+
+topicpulse/
+├── app.py                    # Flask factory, register blueprints
+├── config.py                 # ENV vars + constants
+├── requirements.txt
+├── Procfile                  # gunicorn app:app
+├── .env                      # gitignored — GEMINI_API_KEY etc.
+│
+├── scrapers/
+│   ├── medium.py             # RSS fetch + BeautifulSoup parse
+│   └── stackoverflow.py      # Tagged question scrape
+│
+├── analysis/
+│   ├── sentiment.py          # Gemini batch classification + TextBlob fallback
+│   ├── gap_score.py          # Content gap score computation (Pandas)
+│   └── brief.py              # On-demand brief generation via Gemini
+│
+├── routes/
+│   ├── scan.py               # Blueprint: / and /scan
+│   └── brief.py              # Blueprint: /brief (JSON endpoint)
+│
+├── templates/
+│   ├── index.html            # Landing page + topic input form
+│   └── results.html          # Gap list + SO panel + brief modal
+│
+└── static/
+    ├── style.css
+    └── app.js                # fetch() for brief, Chart.js init
+
+--- API ROUTES ---
+
+GET  /                  Landing page with topic input form
+
+POST /scan              Main pipeline. Accepts: topic (string,
+                        comma-separated for batch).
+                        Does: scrape Medium + SO in parallel,
+                        run sentiment + gap scoring, render
+                        results.html with top 5 gaps + full data.
+
+GET  /export/articles   Download article-level CSV from session
+
+GET  /export/questions  Download SO questions CSV from session
+
+POST /brief             JSON endpoint. Accepts gap context object.
+                        Calls Gemini, returns brief JSON.
+                        Called client-side via fetch() on gap card
+                        click. NO page reload.
+
+Brief endpoint — request body shape:
+{
+  "topic":                "vector databases",
+  "gap_title":            "Vector DB indexing at scale",
+  "gap_score":            0.84,
+  "sentiment_breakdown":  {"positive": 4, "negative": 11, "neutral": 3},
+  "sample_titles":        ["title1", "title2", ...],  // top 5 Medium titles
+  "top_questions":        [
+    {"title": "...", "views": 42000, "answers": 1, "url": "..."},
+    ...
+  ]
+}
+
+Brief endpoint — response body shape:
+{
+  "suggested_title":       "Why Vector Database Indexing Breaks at Scale...",
+  "why_now":               "Medium sentiment is 61% negative...",
+  "target_audience":       "ML engineers building RAG pipelines...",
+  "key_points":            ["HNSW vs IVF tradeoffs", "Benchmarking...", "..."],
+  "questions_to_address":  [
+    {"title": "...", "views": 42000, "answers": 1, "url": "..."}
+  ],
+  "difficulty":            2,
+  "difficulty_label":      "Low competition, high demand"
+}
+
+--- DATA MODELS ---
+
+Article:
+{
+  "author":     str,
+  "title":      str,
+  "url":        str,
+  "claps":      int,       // 0 by default (Medium RSS doesn't include claps)
+  "responses":  int,       // 0 by default
+  "tag":        str,       // source tag — important for batch mode
+  "sentiment":  str,       // "POSITIVE" | "NEGATIVE" | "NEUTRAL"
+  "confidence": float,     // 0.0–1.0
+  "reason":     str        // max 10 words from Gemini
+}
+
+Stack Overflow Question:
+{
+  "title":             str,
+  "url":               str,
+  "votes":             int,
+  "answers":           int,
+  "views":             int,
+  "opportunity_score": float    // views / (answers + 1)
+}
+
+Content Gap:
+{
+  "gap_title":          str,    // Gemini-generated subtopic label
+  "gap_score":          float,  // 0.0–1.0 composite score
+  "difficulty":         int,    // 1–5, inverse of gap_score
+  "so_signal":          float,  // normalized opportunity score
+  "sentiment_signal":   str,    // dominant sentiment for this subtopic
+  "article_count":      int,
+  "top_questions":      list,   // Stack Overflow questions
+  "sample_titles":      list    // top 5 Medium titles
+}
+
+Scan Result (passed to Jinja2 template):
+{
+  "topic":             str,
+  "gaps":              list[Gap],        // top 5, sorted by gap_score desc
+  "all_articles":      list[Article],    // for CSV export
+  "all_questions":     list[Question],   // for CSV export
+  "sentiment_summary": {"positive": int, "negative": int, "neutral": int},
+  "scan_time_seconds": float
+}
+
+--- GAP SCORE IMPLEMENTATION (analysis/gap_score.py) ---
+
+import pandas as pd
+
+def compute_gap_scores(articles: list[dict], questions: list[dict]) -> list[dict]:
+    art_df = pd.DataFrame(articles)
+    q_df   = pd.DataFrame(questions)
+
+    # Stack Overflow signal
+    q_df["opportunity_score"] = q_df["views"] / (q_df["answers"] + 1)
+    max_opp  = q_df["opportunity_score"].max() or 1
+    so_signal = q_df["opportunity_score"].sum() / max_opp  # normalized 0–1
+
+    # Medium signals — group articles by tag (subtopic)
+    grouped = art_df.groupby("tag")
+    gaps = []
+    for tag, group in grouped:
+        sentiment_counts = group["sentiment"].value_counts()
+        n_pos = sentiment_counts.get("POSITIVE", 0)
+        n_neg = sentiment_counts.get("NEGATIVE", 0)
+        n_neu = sentiment_counts.get("NEUTRAL",  0)
+        total = len(group)
+
+        # Sentiment penalty: high negative = bigger gap
+        sentiment_penalty = (n_neg * 1.0 + n_neu * 0.5) / total if total else 0.5
+        gaps.append({
+            "tag":              tag,
+            "so_signal":        so_signal,
+            "sentiment_penalty":sentiment_penalty,
+            "volume_raw":       total,
+            "article_count":    total,
+            "sample_titles":    group["title"].head(5).tolist(),
+            "n_pos": n_pos, "n_neg": n_neg, "n_neu": n_neu,
+        })
+
+    gaps_df = pd.DataFrame(gaps)
+
+    # Normalize volume penalty
+    max_vol = gaps_df["volume_raw"].max() or 1
+    gaps_df["volume_penalty"] = 1 - (gaps_df["volume_raw"] / max_vol)
+
+    # Composite gap score
+    gaps_df["gap_score"] = (
+        gaps_df["so_signal"]         * 0.6 +
+        gaps_df["sentiment_penalty"] * 0.3 +
+        gaps_df["volume_penalty"]    * 0.1
+    ).round(3)
+
+    # Difficulty: inverse of gap score, mapped to 1–5
+    gaps_df["difficulty"] = (
+        5 - (gaps_df["gap_score"] * 4)
+    ).round().astype(int).clip(1, 5)
+
+    return gaps_df.sort_values("gap_score", ascending=False).head(5).to_dict("records")
+
+--- GEMINI INTEGRATION ---
+
+Sentiment classification (analysis/sentiment.py):
+
+  import google.generativeai as genai, json, os
+  from textblob import TextBlob
+
+  genai.configure(api_key=os.environ.get("GEMINI_API_KEY", ""))
+  model = genai.GenerativeModel("gemini-2.0-flash")  # USE THIS MODEL
+
+  def classify_batch(titles: list[str]) -> list[dict]:
+      prompt = f"""Classify sentiment for each title. Return JSON array only.
+  Each item: {{"sentiment":"POSITIVE"|"NEGATIVE"|"NEUTRAL",
+               "confidence":0.0-1.0,"reason":"max 10 words"}}
+  Titles: {json.dumps(titles)}"""
+      try:
+          r = model.generate_content(prompt)
+          return json.loads(r.text.strip().strip("```json").strip("```"))
+      except Exception:
+          return [_textblob(t) for t in titles]
+
+  def _textblob(title: str) -> dict:
+      p = TextBlob(title).sentiment.polarity
+      s = "POSITIVE" if p > 0 else "NEGATIVE" if p < 0 else "NEUTRAL"
+      return {"sentiment": s, "confidence": round(abs(p), 2),
+              "reason": "TextBlob fallback"}
+
+  NOTE: Send up to 10 titles per batch call to minimize latency.
+
+Content brief generation (analysis/brief.py):
+
+  def generate_brief(gap: dict) -> dict:
+      prompt = f"""
+  You are a content strategist. Generate a content brief for the topic gap below.
+  Return JSON only — no markdown, no preamble.
+
+  Gap context:
+  - Topic: {gap['topic']}
+  - Subtopic: {gap['gap_title']}
+  - Gap score: {gap['gap_score']} (higher = bigger opportunity)
+  - Medium sentiment: {gap['n_pos']} positive, {gap['n_neg']} negative,
+    {gap['n_neu']} neutral articles
+  - Sample Medium titles: {json.dumps(gap['sample_titles'])}
+  - Top Stack Overflow questions: {json.dumps(gap['top_questions'])}
+
+  Return this exact JSON shape:
+  {{
+    "suggested_title": "compelling, specific article title",
+    "why_now": "2 sentences on why this gap exists and why now",
+    "target_audience": "specific description of who will read this",
+    "key_points": ["point 1", "point 2", "point 3"],
+    "questions_to_address": [
+      {{"title": "SO question", "views": int, "answers": int, "url": "string"}}
+    ],
+    "difficulty": int,
+    "difficulty_label": "short label explaining the score"
+  }}
+  """
+      try:
+          r = model.generate_content(prompt)
+          text = r.text.strip().strip("```json").strip("```")
+          return json.loads(text)
+      except Exception as e:
+          return {"error": str(e),
+                  "suggested_title": "Brief generation failed — try again."}
+
+Client-side brief fetch (static/app.js):
+
+  async function loadBrief(gapData) {
+    const modal = document.getElementById('brief-modal');
+    modal.innerHTML = 'Loading brief...';
+    modal.classList.add('visible');
+
+    const res = await fetch('/brief', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(gapData)
+    });
+    const brief = await res.json();
+    renderBrief(brief, modal);   // populate modal with brief fields
+  }
+
+--- SCRAPER SPECIFICATIONS ---
+
+Parallel execution wrapper (routes/scan.py):
+
+  from concurrent.futures import ThreadPoolExecutor
+  from scrapers.medium import scrape_tags
+  from scrapers.stackoverflow import scrape_tags as so_scrape_tags
+
+  def run_parallel_scrape(topics: list[str], pages: int):
+      with ThreadPoolExecutor(max_workers=2) as ex:
+          medium_future = ex.submit(scrape_tags, topics, pages)
+          so_future     = ex.submit(so_scrape_tags, topics, pages)
+          articles  = medium_future.result()
+          questions = so_future.result()
+      return articles, questions
+
+Medium scraper (scrapers/medium.py):
+  NOTE: Medium RSS does NOT include clap counts. Fetching claps
+  requires visiting each article page (~1s per article, risks
+  rate limiting). For v1, claps default to 0. Clap enrichment is
+  optional for v2.
+
+  MEDIUM_RSS = "https://medium.com/feed/tag/{tag}"
+
+  def scrape_tag(tag: str, pages: int = 1) -> list[dict]:
+      url = MEDIUM_RSS.format(tag=tag.strip().lower())
+      try:
+          r = requests.get(url, timeout=10,
+                           headers={"User-Agent": "Mozilla/5.0"})
+          soup = BeautifulSoup(r.content, "xml")
+          return [{
+              "author":    item.find("dc:creator").text
+                           if item.find("dc:creator") else "Unknown",
+              "title":     item.title.text,
+              "url":       item.link.text,
+              "claps": 0, "responses": 0,
+              "tag": tag, "sentiment": None,
+              "confidence": None, "reason": None
+          } for item in soup.find_all("item")]
+      except Exception:
+          return []
+
+Stack Overflow scraper (scrapers/stackoverflow.py):
+  URL pattern: https://stackoverflow.com/questions/tagged/{tag}?tab=votes&page={page}
+  Parses: title, votes, answers, views per question
+  Calculates: opportunity_score = views / (answers + 1)
+
+--- DEPENDENCIES (requirements.txt) ---
+
+flask==3.0.3
+requests==2.31.0
+beautifulsoup4==4.12.3
+lxml==5.2.1              # XML parser for Medium RSS feeds
+pandas==2.2.2
+google-generativeai==0.7.2
+textblob==0.18.0         # Sentiment fallback
+python-dotenv==1.0.1
+gunicorn==22.0.0         # Production WSGI server for Render
+
+--- ENVIRONMENT VARIABLES ---
+
+GEMINI_API_KEY   = Google AI Pro key  (Render dashboard + local .env)
+SECRET_KEY       = Random string      (Render dashboard + local .env)
+FLASK_ENV        = production         (Render dashboard only)
+
+IMPORTANT: Never commit .env to git. Add to .gitignore immediately.
+
+Procfile:
+  web: gunicorn app:app
+
+--- BUILD PHASES ---
+
+Phase 1 — Wire gap scoring into existing app (Day 1)
+  - Add analysis/gap_score.py with compute_gap_scores function
+  - Update routes/scan.py to call gap scoring after scrape + sentiment
+  - Pass gaps list to results template
+  - Render gap cards in results.html (static, no brief yet)
+  - Verify gap scores make intuitive sense on a real topic scan
+
+Phase 2 — Brief endpoint (Day 1–2)
+  - Add analysis/brief.py with generate_brief function
+  - Add routes/brief.py Blueprint with POST /brief route
+  - Register blueprint in app.py
+  - Test endpoint independently with curl/Postman before frontend
+
+Phase 3 — Brief modal (Day 2)
+  - Add modal HTML to results.html (hidden by default)
+  - Add fetch() call in app.js triggered by gap card click
+  - Render brief fields into modal on response
+  - Add loading state while Gemini generates
+  - Add close button and keyboard escape handling
+
+Phase 4 — Polish + deploy (Day 3)
+  - Add sentiment donut chart (Chart.js) to results page
+  - Add SO top questions panel alongside gap cards
+  - Clean up CSS — gap cards should look like a product
+  - Add loading spinner on /scan POST (scrape takes 10–20s)
+  - Deploy to Render, verify live URL end-to-end
+  - Record demo GIF, write README, push to GitHub
+
+Definition of Done:
+  Public URL live. Any topic typed into the input returns 5 ranked
+  content gaps in under 20 seconds. Clicking any gap generates a
+  full brief in under 8 seconds. README has a demo GIF showing the
+  full flow. A non-technical person can use it without instructions.
+
+================================================================
+END OF DOCUMENT
+================================================================
