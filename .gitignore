@@ -1,5 +1,8 @@
-.env 
-__pycache__/ 
-venv/ 
-*.pyc 
-output/ 
+.env
+__pycache__/
+*.pyc
+venv/
+env/
+.DS_Store
+*.csv
+output/

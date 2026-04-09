@@ -1,10 +1,10 @@
-# TopicPulse v2.0 — Content Gap Finder 🚀
+# TopicPulse v2.0 — Content Gap Finder 
 
 TopicPulse is a premium content intelligence tool that identifies underserved topics at the intersection of **Medium** engagement and **Stack Overflow** demand. 
 
 Instead of just showing what's popular, TopicPulse shows you what's **missing**. It cross-references community sentiment with unanswered technical demand to surface the 5 best content opportunities for developers and technical founders.
 
-## 🌟 Features
+##  Features
 
 - **Unified Topic Scan:** Cross-reference Medium + Stack Overflow in one click.
 - **Content Gap Scoring:** Weighted algorithm (60% SO Demand, 30% Sentiment, 10% Volume).
@@ -32,7 +32,7 @@ Instead of just showing what's popular, TopicPulse shows you what's **missing**.
 ```bash
 # Clone the repository
 git clone https://github.com/cruspy2004/Medium-scrapper-and-sentiment-analysis-.git
-cd Medium-scrapper-and-sentiment-analysis-/topicpulse
+cd Medium-scrapper-and-sentiment-analysis-
 
 # Create a virtual environment (optional but recommended)
 python -m venv venv
@@ -43,7 +43,7 @@ pip install -r requirements.txt
 ```
 
 ### 3. Environment Setup
-Create a `.env` file in the `topicpulse/` directory:
+Create a `.env` file in the project root:
 ```env
 GEMINI_API_KEY=your_actual_key_here
 SECRET_KEY=a_random_secure_string
@@ -63,7 +63,8 @@ Open `http://127.0.0.1:5000` in your browser.
 Vercel supports Python/Flask natively. To deploy TopicPulse:
 
 ### 1. Configure for Vercel
-Add a `vercel.json` to your project root (ensure it points to your app entry point):
+Since the project is now at the root, Vercel will auto-detect everything.
+Add a `vercel.json` if you need custom routing:
 ```json
 {
   "rewrites": [
@@ -72,14 +73,11 @@ Add a `vercel.json` to your project root (ensure it points to your app entry poi
 }
 ```
 
-### 2. Rename for Entry Point (Optional)
-Vercel's Python runtime often looks for `index.py` or uses the file specified in the rewrite. Ensure `app` is the variable name for your Flask instance.
-
-### 3. Deploy via CLI or Git
+### 2. Deploy via CLI or Git
 - **Git:** Push your code to GitHub and connect the repository in the Vercel Dashboard.
-- **CLI:** Run `vercel` from the `topicpulse` directory.
+- **CLI:** Run `vercel` from the root directory.
 
-### 4. Add Environment Variables
+### 3. Add Environment Variables
 In the Vercel Dashboard under **Settings > Environment Variables**, add:
 - `GEMINI_API_KEY`
 - `SECRET_KEY`
