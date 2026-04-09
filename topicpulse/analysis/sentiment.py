@@ -57,7 +57,7 @@ def generate_topic_summary(topic: str, titles: list) -> str:
         
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.0-flash")
         
         prompt = f"""
 You are analyzing content about "{topic}".
@@ -71,4 +71,6 @@ tone is optimistic or concerned. Be specific and direct.
         return response.text.strip()
     except Exception as e:
         print(f"Gemini Summary Error: {e}")
-        return "Summary unavailable right now."
+        if "429" in str(e):
+            return "Gemini API Error: You have exceeded your current quota. Please check your plan/billing on Google AI Studio."
+        return "Summary unavailable right now due to a backend error."

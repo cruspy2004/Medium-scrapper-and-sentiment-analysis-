@@ -5,6 +5,34 @@ from concurrent.futures import ThreadPoolExecutor
 
 MEDIUM_RSS = "https://medium.com/feed/tag/{tag}"
 
+def extract_article_stats(link: str):
+    """Scrape the actual article page for claps and responses since RSS doesn't include them."""
+    try:
+        r = requests.get(link, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code != 200:
+            return 0, 0
+        soup = BeautifulSoup(r.content, 'html.parser')
+        
+        # Claps
+        claps = 0
+        clap_span = soup.find('span', {'class': 'pw-multi-vote-count'})
+        if clap_span:
+            clap_text = clap_span.text.strip().replace('K', '000').replace('.', '')
+            claps = int(clap_text) if clap_text.isdigit() else 0
+            
+        # Responses
+        responses = 0
+        responses_button = soup.find('button', {'aria-label': 'responses'})
+        if responses_button:
+            responses_text = responses_button.text.strip()
+            # Often says '42 responses' 
+            clean = responses_text.replace('responses', '').strip()
+            responses = int(clean) if clean.isdigit() else 0
+            
+        return claps, responses
+    except:
+        return 0, 0
+
 def scrape_tag(tag: str, pages: int = 1) -> list:
     url = MEDIUM_RSS.format(tag=tag.strip().lower())
     try:
@@ -17,12 +45,17 @@ def scrape_tag(tag: str, pages: int = 1) -> list:
         articles = []
         for item in soup.find_all("item"):
             creator = item.find("dc:creator")
+            link = item.link.text if item.link else url
+            
+            # Fetch deeper stats using the actual article link (Fixing the 0 claps issue)
+            claps, responses = extract_article_stats(link)
+            
             articles.append({
                 "author":    creator.text if creator else "Unknown",
                 "title":     item.title.text if item.title else "Untitled",
-                "url":       item.link.text if item.link else url,
-                "claps":     0,
-                "responses": 0,
+                "url":       link,
+                "claps":     claps,
+                "responses": responses,
                 "tag":       tag,
                 "sentiment": None,
                 "confidence":None,
