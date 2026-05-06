@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, make_response, session
+from flask import Blueprint, render_template, request, make_response, session, current_app
 from concurrent.futures import ThreadPoolExecutor
 import time
 import pandas as pd
@@ -71,6 +71,14 @@ def scan():
     if not questions_df.empty:
         questions = questions_df.to_dict("records")
 
+    # 3.5 v3: Run quality prediction on SO questions (if model is loaded)
+    predictor = current_app.config.get("PREDICTOR")
+    if predictor and questions:
+        try:
+            questions = predictor.predict_batch(questions)
+        except Exception as e:
+            print(f"Quality prediction failed (continuing without): {e}")
+
     # 4. Compute content gap scores
     gaps = compute_gap_scores(articles, questions)
 
@@ -88,11 +96,30 @@ def scan():
             "neutral": int(counts.get("NEUTRAL", 0)),
         }
 
-    # 6. Store for CSV export
+    # 5.5 v3: Build quality summary
+    quality_summary = {"high": 0, "medium": 0, "low": 0}
+    if questions:
+        for q in questions:
+            ql = q.get("quality_label", "")
+            if ql == "HIGH":
+                quality_summary["high"] += 1
+            elif ql == "MEDIUM":
+                quality_summary["medium"] += 1
+            elif ql == "LOW":
+                quality_summary["low"] += 1
+
+    quality_passed = quality_summary["high"] + quality_summary["medium"]
+
+    # 6. Store for CSV export (rebuild DF with quality columns)
+    if questions:
+        questions_export_df = pd.DataFrame(questions)
+    else:
+        questions_export_df = pd.DataFrame()
+
     scan_id = str(int(time.time()))
     SCAN_RESULTS[scan_id] = {
         "articles": articles_df if not articles_df.empty else pd.DataFrame(),
-        "questions": questions_df if not questions_df.empty else pd.DataFrame(),
+        "questions": questions_export_df,
     }
 
     t_elapsed = round(time.time() - start_time, 2)
@@ -104,6 +131,8 @@ def scan():
         all_articles=articles[:20],
         all_questions=questions[:10],
         sentiment_summary=sentiment_summary,
+        quality_summary=quality_summary,
+        quality_passed=quality_passed,
         scan_time_seconds=t_elapsed,
         scan_id=scan_id,
         total_articles=len(articles),
