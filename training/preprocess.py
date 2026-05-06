@@ -24,12 +24,19 @@ from sklearn.model_selection import train_test_split
 # ---------------------------------------------------------------------------
 # Ensure NLTK data is available
 # ---------------------------------------------------------------------------
-for resource in ["punkt", "punkt_tab", "stopwords", "wordnet", "omw-1.4"]:
+_NLTK_RESOURCES = [
+    ("tokenizers", "punkt_tab"),
+    ("corpora", "stopwords"),
+    ("corpora", "wordnet"),
+]
+for _category, _resource in _NLTK_RESOURCES:
     try:
-        nltk.data.find(f"tokenizers/{resource}" if "punkt" in resource
-                       else f"corpora/{resource}")
-    except LookupError:
-        nltk.download(resource, quiet=True)
+        nltk.data.find(f"{_category}/{_resource}")
+    except Exception:
+        try:
+            nltk.download(_resource, quiet=True)
+        except Exception:
+            pass  # Best-effort; tokenize_text will use fallback if needed
 
 logger = logging.getLogger(__name__)
 

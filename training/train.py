@@ -137,8 +137,7 @@ def train():
                      weight_decay=CONFIG["weight_decay"])
     scheduler = ReduceLROnPlateau(optimizer, mode="max",
                                   patience=CONFIG["lr_patience"],
-                                  factor=CONFIG["lr_factor"],
-                                  verbose=True)
+                                  factor=CONFIG["lr_factor"])
 
     # ------------------------------------------------------------------
     # Training loop
