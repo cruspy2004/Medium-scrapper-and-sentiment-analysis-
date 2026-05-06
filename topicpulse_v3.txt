@@ -1,0 +1,942 @@
+================================================================
+TOPICPULSE v3.0 — PROJECT BRIEF
+================================================================
+Author: Muhammad Haadhee Sheeraz Mian | Reg No: 478359
+NUST SEECS · BSCS Class of 2027
+Stack: Python · Flask · PyTorch · Gemini API · Pandas
+Version: 3.0 — Content Gap Finder + DL Question Quality Prediction
+Status: Active Development
+================================================================
+
+
+================================================================
+WHAT IS THIS PROJECT? (READ THIS FIRST)
+================================================================
+
+TopicPulse v3 is a CONTENT GAP FINDER with a deep learning core.
+
+The idea: a user types any topic (e.g. "vector databases"), and
+the tool cross-references THREE signals to surface the 5 best
+content opportunities:
+
+  Signal 1 — Medium saturation:
+    How much content already exists on this topic?
+    What is the community sentiment — are writers positive or
+    frustrated? High volume + positive = crowded. Low volume or
+    negative sentiment = opportunity.
+
+  Signal 2 — Stack Overflow demand:
+    How many people are asking questions that aren't getting answered?
+    Opportunity score = views / (answers + 1).
+    A question with 50,000 views and 1 answer = screaming demand.
+
+  Signal 3 — Question Quality Prediction (NEW — Deep Learning):
+    A hybrid CNN-LSTM model predicts whether each Stack Overflow
+    question is likely to receive a quality answer, and estimates
+    time-to-first-answer. This filters out noise: questions that
+    go unanswered because they are poorly written, too vague, or
+    missing code context are separated from questions that represent
+    GENUINE content gaps. Without this signal, the system treats
+    all unanswered questions equally, producing noisy recommendations.
+
+These three signals are combined into a single "Content Gap Score"
+(0.0 to 1.0). The top 5 gaps are displayed. The user can click any
+gap to get a full AI-generated content brief: suggested title,
+target audience, key points to cover, top unanswered questions to
+address, and a difficulty-to-rank score.
+
+One-line pitch:
+"Type a topic. Get the 5 things you should write about this week
+— and a full brief for each one — powered by deep learning that
+knows the difference between bad questions and real content gaps."
+
+
+================================================================
+KEY CHANGES FROM v2
+================================================================
+
+v2 was: scrape Medium + Stack Overflow → compute content gap scores
+        using rule-based signals → show ranked gap list → click any
+        gap → Gemini generates a full content brief on the fly.
+
+v3 IS: everything in v2 PLUS a deep learning module that predicts
+       Stack Overflow question quality and answerability. This
+       prediction becomes a third signal in the gap scoring formula,
+       replacing the naive assumption that all unanswered questions
+       represent real demand.
+
+New components in v3:
+  - analysis/question_quality.py: PyTorch model inference pipeline
+  - models/: trained model weights and vocabulary files
+  - training/: model training scripts, data loaders, evaluation
+  - Updated gap_score.py: incorporates quality-adjusted demand
+  - Updated results.html: shows quality prediction per question
+
+
+================================================================
+PRODUCT REQUIREMENTS (PRD v3)
+================================================================
+
+--- THE CONTENT GAP SCORE FORMULA (UPDATED) ---
+
+gap_score = (quality_adjusted_so_score × 0.50)
+          + (sentiment_penalty × 0.30)
+          + (volume_penalty × 0.10)
+          + (answerability_signal × 0.10)
+
+Where:
+  quality_adjusted_so_score =
+    Sum of opportunity scores ONLY for questions predicted as
+    "answerable" (i.e. well-formed, has code, clear scope) but
+    still unanswered. Normalized to 0 to 1.
+    This replaces the old so_opportunity_score which counted ALL
+    unanswered questions regardless of quality.
+
+  sentiment_penalty = 1.0 if NEGATIVE, 0.5 if NEUTRAL,
+                      0.0 if POSITIVE
+
+  volume_penalty = 1 - (article_count / max_article_count)
+
+  answerability_signal =
+    Proportion of questions in this topic predicted as answerable
+    but still unanswered. High ratio = genuine gap. Low ratio =
+    questions are just bad. Normalized to 0 to 1.
+
+Weights: Quality-adjusted SO demand remains the strongest signal
+(50%). Sentiment is meaningful (30%). Answerability signal adds
+a dedicated deep learning channel (10%). Raw volume is a minor
+tiebreaker (10%).
+
+All components are normalized to 0 to 1 before weighting.
+
+Difficulty score (shown on brief):
+  difficulty = inverse of gap_score, mapped to a 1 to 5 scale.
+  High gap = low difficulty to rank (bar is low, content is poor).
+  Low gap = high difficulty (well covered, hard to compete).
+
+Decision matrix (when to write):
+  High quality-adjusted SO + Negative sentiment + Low volume
+    → WRITE THIS (real demand, nobody has cracked it yet)
+  High quality-adjusted SO + Positive sentiment + Medium volume
+    → WRITE THIS (demand is real, appetite for more)
+  High raw SO but LOW quality-adjusted SO
+    → SKIP (questions are unanswered because they are bad, not
+      because content is missing)
+  Medium quality-adjusted SO + Negative sentiment + High volume
+    → WRITE IF YOU HAVE A NEW ANGLE (crowded but disappointing)
+  Low SO opportunity + Positive sentiment + High volume
+    → SKIP (saturated, no gap)
+  Low SO opportunity + Any sentiment + Low volume
+    → SKIP (no demand)
+
+--- TARGET USERS ---
+
+1. Developers who create content
+   Write tutorials and blog posts. Want to know which topics will
+   get traction before spending hours writing. Care about Stack
+   Overflow demand because their audience lives there.
+
+2. Technical founders / indie hackers
+   Building in public, using content for distribution. Need to move
+   fast — full brief in one click = idea to outline in minutes.
+
+3. Content strategists at dev tools companies
+   Run a weekly topic scan on any cluster, turn it into a
+   prioritized content calendar based on real demand data.
+
+--- USER STORIES ---
+
+Developer: "I want to type a topic and immediately see which
+subtopics are underserved so I can write something that will
+actually get read — not compete with 500 existing articles."
+
+Technical founder: "I want a full content brief generated for the
+best gap so I can hand it to a writer or start drafting immediately
+— without spending an hour on research."
+
+Content strategist: "I want to run a weekly topic scan and export
+the results so I can build a prioritized content calendar based on
+real demand data, not assumptions."
+
+New (v3): "I want the system to be smart enough to distinguish
+between topics that are genuinely underserved and topics where
+questions are just poorly asked. I do not want to waste time
+writing about something where the demand signal is just noise."
+
+--- PROBLEM STATEMENT ---
+
+Developers and content creators waste significant time deciding what
+to write about. Existing tools are either expensive (BuzzSumo,
+SparkToro), keyword-only (AnswerThePublic, Ahrefs), or require
+manual cross-referencing across multiple platforms.
+
+No tool combines community sentiment analysis from a long-form
+writing platform WITH unanswered demand signals from a technical
+Q&A platform to produce a ranked, actionable content opportunity
+list — with a generated brief attached.
+
+Furthermore, naive demand signals from Stack Overflow are noisy.
+Many questions go unanswered not because content is missing, but
+because the questions themselves are vague, lack code, or are too
+broad to answer. A deep learning model that predicts question
+quality and answerability filters this noise, producing sharper
+and more actionable recommendations.
+
+--- FEATURE REQUIREMENTS ---
+
+P0 — MUST SHIP:
+
+1. Topic input
+   Single text field. User enters a topic (e.g. "vector databases").
+   Comma-separated for multi-tag batch (e.g. "rag, vector databases,
+   embeddings").
+
+2. Parallel scrape
+   Medium RSS + Stack Overflow scraped simultaneously using
+   ThreadPoolExecutor. Both complete before results render.
+
+3. Gemini sentiment
+   Batch sentiment classification on Medium article titles.
+   Returns POSITIVE / NEGATIVE / NEUTRAL + confidence score.
+   TextBlob fallback if Gemini API is unavailable.
+
+4. Question quality prediction (NEW — Deep Learning)
+   Each scraped Stack Overflow question is passed through the
+   trained CNN-LSTM model. The model outputs:
+     - answerability: probability (0.0 to 1.0) that this question
+       will receive an accepted answer
+     - time_bucket: predicted time-to-first-answer category
+       (under_1h, 1h_to_24h, 1d_to_7d, over_7d_or_never)
+     - quality_label: HIGH / MEDIUM / LOW
+   Questions with quality_label = LOW are flagged in the UI and
+   down-weighted in gap scoring.
+
+5. Content gap list
+   Ranked list of top 5 content gaps. Each card shows:
+   gap title (Gemini-generated subtopic label), gap score,
+   difficulty rating, SO demand signal (quality-adjusted),
+   Medium sentiment signal, and quality filter stats
+   (e.g. "12 of 18 questions are well-formed").
+
+6. Content brief drill-down
+   Click any gap card → full brief generated fresh via Gemini
+   (client-side fetch(), no page reload). See Brief spec below.
+   Brief is generated on click, NOT pre-cached.
+
+7. CSV export
+   Export full scan data:
+   - Articles: author, title, sentiment, URL
+   - Questions: title, views, answers, opportunity score,
+     predicted quality, answerability score, URL
+
+P1 — HIGH VALUE:
+
+8. Scan summary card
+   At top of results: total articles found, total questions found,
+   dominant sentiment, top gap score, quality filter stats
+   (X of Y questions passed quality threshold). Immediate context
+   before reading individual gap cards.
+
+9. Sentiment donut chart
+   Chart.js visualization of positive/negative/neutral distribution
+   across all Medium articles in the scan.
+
+10. Top unanswered questions panel
+    Separate panel listing top 5 Stack Overflow questions by
+    QUALITY-ADJUSTED opportunity score (quality * views / answers).
+    Direct links. Shows predicted quality badge per question.
+
+11. Question quality breakdown panel (NEW)
+    Visual breakdown per topic: how many questions are HIGH,
+    MEDIUM, LOW quality. Helps the user understand WHY a topic
+    scores the way it does.
+
+P2 — NICE TO HAVE:
+
+12. Search history
+    Last 5 scans stored in browser localStorage. Re-run or compare.
+
+13. Brief export
+    Download any generated brief as a Markdown file for use in
+    Notion or Obsidian.
+
+14. Model confidence indicator
+    Show model prediction confidence alongside each question's
+    quality label. Low confidence predictions are visually muted.
+
+--- OUT OF SCOPE ---
+
+- User accounts or saved briefs server-side
+- Reddit, Dev.to scraping (future version)
+- Real-time/scheduled scans (results are point-in-time snapshots)
+- Monetization
+- Mobile app
+- Transformer-based models (BERT, GPT) — keeping to CNN-LSTM scope
+
+--- SUCCESS METRICS ---
+
+- Full scan time (steps 1 to 6): under 25 seconds
+  (additional ~3s for quality prediction inference)
+- Brief generation (step 7): under 8 seconds
+- Ranked gaps per scan: 5
+- Question quality model: minimum 75% F1 on held-out test set,
+  outperforming TF-IDF + Logistic Regression baseline
+- Definition of done: public URL live on Render, demo GIF in README,
+  a non-technical person can run a full scan and get a useful brief
+  in under 35 seconds total.
+
+
+================================================================
+TECHNICAL DESIGN DOCUMENT (DD v3)
+================================================================
+
+--- SYSTEM ARCHITECTURE ---
+
+Single Flask app with 5 layers (Layer 3 now split into Analysis
+and Deep Learning).
+
+KEY ARCHITECTURAL DECISIONS:
+- Gap scoring, brief generation, and quality prediction are
+  SEPARATE CONCERNS.
+- Scoring happens server-side at scan time (POST /scan).
+- Quality prediction happens server-side at scan time, AFTER
+  scraping and BEFORE gap scoring.
+- Brief generation happens ON-DEMAND per click (POST /brief).
+
+Layer 1 — Presentation Layer
+  Technology: Jinja2 templates, Chart.js, Vanilla JS fetch()
+  Role: Flask renders the gap list at scan time. Brief drill-down
+  uses fetch() to call /brief and injects the result into a modal
+  panel. Quality badges rendered on each question card.
+
+Layer 2 — Route Layer
+  Technology: Flask Blueprints (routes/scan.py, routes/brief.py)
+  Role: Two blueprints.
+    scan  — full pipeline: scrape, predict quality, analyse,
+            score, render.
+    brief — single POST that receives gap context, returns
+            Gemini-generated brief as JSON.
+
+Layer 3 — Analysis Layer
+  Technology: analysis/sentiment.py, analysis/gap_score.py,
+              analysis/brief.py
+  Role: Sentiment classification (Gemini batch + TextBlob fallback).
+  Gap score computation (Pandas, now incorporating quality signal).
+  Brief generation (Gemini, on-demand). All pure functions.
+
+Layer 4 — Deep Learning Layer (NEW)
+  Technology: analysis/question_quality.py, models/, training/
+  Role: Loads trained CNN-LSTM model at app startup. At scan time,
+  receives list of scraped questions, runs inference, returns
+  quality predictions. Model is loaded ONCE and reused across
+  requests (no reloading per scan).
+
+Layer 5 — Data Layer
+  Technology: scrapers/medium.py, scrapers/stackoverflow.py,
+              concurrent.futures
+  Role: Both scrapers run in parallel via ThreadPoolExecutor.
+  Each returns a normalized list of dicts. Stack Overflow scraper
+  now also extracts code blocks from question body HTML for the
+  CNN code branch.
+
+--- FILE STRUCTURE ---
+
+topicpulse/
+├── app.py                    # Flask factory, register blueprints,
+│                             #   load DL model at startup
+├── config.py                 # ENV vars + constants
+├── requirements.txt
+├── Procfile                  # gunicorn app:app
+├── .env                      # gitignored — GEMINI_API_KEY etc.
+│
+├── scrapers/
+│   ├── medium.py             # RSS fetch + BeautifulSoup parse
+│   └── stackoverflow.py      # Tagged question scrape
+│                             #   NOW extracts code blocks too
+│
+├── analysis/
+│   ├── sentiment.py          # Gemini batch classification + TextBlob fallback
+│   ├── gap_score.py          # Content gap score (UPDATED with quality signal)
+│   ├── brief.py              # On-demand brief generation via Gemini
+│   └── question_quality.py   # NEW — PyTorch inference pipeline
+│
+├── models/
+│   ├── question_quality.pt   # Trained CNN-LSTM weights
+│   ├── vocab_text.json       # Text vocabulary (word to index)
+│   └── vocab_code.json       # Code vocabulary (token to index)
+│
+├── training/
+│   ├── train.py              # Training loop, logging, checkpoints
+│   ├── dataset.py            # PyTorch Dataset + DataLoader
+│   ├── model.py              # CNN-LSTM architecture definition
+│   ├── preprocess.py         # Text cleaning, code tokenization,
+│   │                         #   label engineering
+│   ├── evaluate.py           # Metrics: F1, accuracy, confusion matrix
+│   ├── baselines.py          # TF-IDF + LR, Random Forest baselines
+│   └── ablation.py           # LSTM-only, CNN-only experiments
+│
+├── routes/
+│   ├── scan.py               # Blueprint: / and /scan
+│   └── brief.py              # Blueprint: /brief (JSON endpoint)
+│
+├── templates/
+│   ├── index.html            # Landing page + topic input form
+│   └── results.html          # Gap list + SO panel + brief modal
+│                             #   + quality badges + quality panel
+│
+└── static/
+    ├── style.css
+    └── app.js                # fetch() for brief, Chart.js init
+
+--- API ROUTES ---
+
+GET  /                  Landing page with topic input form
+
+POST /scan              Main pipeline. Accepts: topic (string,
+                        comma-separated for batch).
+                        Does: scrape Medium + SO in parallel,
+                        run quality prediction on SO questions,
+                        run sentiment + gap scoring, render
+                        results.html with top 5 gaps + full data.
+
+GET  /export/articles   Download article-level CSV from session
+
+GET  /export/questions  Download SO questions CSV from session
+                        (now includes quality predictions)
+
+POST /brief             JSON endpoint. Accepts gap context object.
+                        Calls Gemini, returns brief JSON.
+                        Called client-side via fetch() on gap card
+                        click. NO page reload.
+
+Brief endpoint — request body shape:
+{
+  "topic":                "vector databases",
+  "gap_title":            "Vector DB indexing at scale",
+  "gap_score":            0.84,
+  "sentiment_breakdown":  {"positive": 4, "negative": 11, "neutral": 3},
+  "quality_breakdown":    {"high": 8, "medium": 6, "low": 4},
+  "sample_titles":        ["title1", "title2", ...],
+  "top_questions":        [
+    {"title": "...", "views": 42000, "answers": 1,
+     "quality": "HIGH", "answerability": 0.87, "url": "..."},
+    ...
+  ]
+}
+
+Brief endpoint — response body shape:
+{
+  "suggested_title":       "Why Vector Database Indexing Breaks at Scale...",
+  "why_now":               "Medium sentiment is 61% negative...",
+  "target_audience":       "ML engineers building RAG pipelines...",
+  "key_points":            ["HNSW vs IVF tradeoffs", "Benchmarking...", "..."],
+  "questions_to_address":  [
+    {"title": "...", "views": 42000, "answers": 1,
+     "quality": "HIGH", "url": "..."}
+  ],
+  "difficulty":            2,
+  "difficulty_label":      "Low competition, high demand"
+}
+
+--- DATA MODELS ---
+
+Article:
+{
+  "author":     str,
+  "title":      str,
+  "url":        str,
+  "claps":      int,
+  "responses":  int,
+  "tag":        str,
+  "sentiment":  str,       // "POSITIVE" | "NEGATIVE" | "NEUTRAL"
+  "confidence": float,
+  "reason":     str
+}
+
+Stack Overflow Question (UPDATED):
+{
+  "title":             str,
+  "body_text":         str,       // NEW — cleaned body text
+  "code_blocks":       list[str], // NEW — extracted code snippets
+  "url":               str,
+  "votes":             int,
+  "answers":           int,
+  "views":             int,
+  "tags":              list[str], // NEW — question tags
+  "has_code":          bool,      // NEW — whether code is present
+  "opportunity_score": float,
+  "quality_label":     str,       // NEW — "HIGH" | "MEDIUM" | "LOW"
+  "answerability":     float,     // NEW — 0.0 to 1.0 probability
+  "time_bucket":       str        // NEW — predicted answer time
+}
+
+Content Gap (UPDATED):
+{
+  "gap_title":          str,
+  "gap_score":          float,
+  "difficulty":         int,
+  "so_signal":          float,    // now quality-adjusted
+  "answerability_signal": float,  // NEW
+  "sentiment_signal":   str,
+  "article_count":      int,
+  "quality_breakdown":  dict,     // NEW — {"high": N, "medium": N, "low": N}
+  "top_questions":      list,
+  "sample_titles":      list
+}
+
+Scan Result (passed to Jinja2 template):
+{
+  "topic":             str,
+  "gaps":              list[Gap],
+  "all_articles":      list[Article],
+  "all_questions":     list[Question],
+  "sentiment_summary": {"positive": int, "negative": int, "neutral": int},
+  "quality_summary":   {"high": int, "medium": int, "low": int},
+  "scan_time_seconds": float
+}
+
+
+================================================================
+DEEP LEARNING MODULE — DETAILED SPECIFICATION
+================================================================
+
+--- PROBLEM DEFINITION ---
+
+Given a Stack Overflow question (title, body text, code snippets,
+tags, metadata), predict:
+
+  Task 1 (Binary Classification):
+    Will this question receive an accepted answer?
+    Output: probability 0.0 to 1.0
+
+  Task 2 (Multi-Class Classification):
+    How quickly will the first answer arrive?
+    Classes: under_1h, 1h_to_24h, 1d_to_7d, over_7d_or_never
+
+  Derived label:
+    quality_label = HIGH if answerability > 0.7
+                    MEDIUM if answerability between 0.4 and 0.7
+                    LOW if answerability < 0.4
+
+--- DATA COLLECTION ---
+
+Source: Stack Exchange Data Explorer (data.stackexchange.com) +
+Stack Exchange API for live scraping.
+
+Target dataset: 50,000 to 100,000 questions across 20 to 30
+popular tags (python, javascript, react, docker, kubernetes,
+machine-learning, sql, etc.)
+
+Fields collected per question:
+  - Id, Title, Body (HTML), Tags
+  - CreationDate, Score, ViewCount, AnswerCount
+  - AcceptedAnswerId (null or int — this is the binary label)
+  - First answer timestamp (derived — for time bucket label)
+
+Label engineering:
+  - has_accepted_answer: 1 if AcceptedAnswerId is not null, else 0
+  - time_to_first_answer: CreationDate of first answer minus
+    CreationDate of question. Bucketed into 4 classes.
+  - Questions with 0 answers AND older than 30 days are labeled
+    as "over_7d_or_never".
+
+Train/Val/Test split: 70/15/15, stratified by tag and label.
+
+--- PREPROCESSING PIPELINE ---
+
+Text preprocessing (title + body):
+  1. Strip HTML tags from body using BeautifulSoup
+  2. Extract code blocks (<code>, <pre>) into separate field
+  3. Lowercase remaining text
+  4. Remove URLs, special characters, excessive whitespace
+  5. Tokenize using NLTK word_tokenize
+  6. Remove stopwords (NLTK English stopwords)
+  7. Lemmatize using WordNetLemmatizer
+  8. Build vocabulary from training set (top 30,000 words)
+  9. Convert tokens to integer indices, pad/truncate to
+     max_length = 300 tokens
+
+Code preprocessing:
+  1. Concatenate all code blocks per question
+  2. Tokenize at character/token level preserving:
+     language keywords, operators, built-in functions,
+     variable patterns (camelCase, snake_case)
+  3. Build separate code vocabulary (top 10,000 tokens)
+  4. Convert to integer indices, pad/truncate to
+     max_length = 200 tokens
+
+Metadata features (handcrafted, 8 dimensions):
+  - tag_count: number of tags on question
+  - title_length: word count of title
+  - body_length: word count of body (excluding code)
+  - code_length: total token count of code blocks
+  - has_code: binary (1 if code present, 0 otherwise)
+  - num_code_blocks: count of code blocks
+  - hour_of_day: hour when question was posted (0 to 23)
+  - is_weekend: binary (1 if posted on Saturday/Sunday)
+
+--- MODEL ARCHITECTURE ---
+
+class QuestionQualityModel(nn.Module):
+
+  Text Branch:
+    Embedding(vocab_size=30000, embed_dim=100, pretrained=GloVe)
+    → Bidirectional LSTM(hidden=128, num_layers=2, dropout=0.3)
+    → Take final hidden state → Linear(256, 128) → ReLU → Dropout(0.3)
+    Output: 128-dim text representation
+
+  Code Branch:
+    Embedding(vocab_size=10000, embed_dim=64, learned)
+    → Conv1d(in=64, out=64, kernel=3, padding=1) → ReLU → MaxPool
+    → Conv1d(in=64, out=64, kernel=5, padding=2) → ReLU → MaxPool
+    → Conv1d(in=64, out=64, kernel=7, padding=3) → ReLU → MaxPool
+    → Concatenate pooled outputs → Linear(192, 64) → ReLU → Dropout(0.3)
+    Output: 64-dim code representation
+
+  Metadata Branch:
+    Linear(8, 32) → ReLU → Dropout(0.2)
+    Output: 32-dim metadata representation
+
+  Fusion:
+    Concatenate(text_128 + code_64 + metadata_32) = 224-dim
+    → Linear(224, 128) → ReLU → BatchNorm → Dropout(0.4)
+    → Linear(128, 64) → ReLU → Dropout(0.3)
+
+  Output Heads:
+    Answerability head: Linear(64, 1) → Sigmoid
+      (binary cross-entropy loss)
+    Time bucket head: Linear(64, 4) → Softmax
+      (cross-entropy loss, class weights for imbalance)
+
+  Total loss = 0.7 * BCE_loss + 0.3 * CE_loss
+
+--- TRAINING CONFIGURATION ---
+
+Optimizer: Adam (lr=1e-3, weight_decay=1e-5)
+Scheduler: ReduceLROnPlateau (patience=3, factor=0.5)
+Batch size: 64
+Epochs: 30 (early stopping with patience=5 on val F1)
+Device: GPU if available (CUDA), else CPU
+Gradient clipping: max_norm=1.0
+
+Class imbalance handling:
+  - Time bucket classes are imbalanced (most questions get answered
+    within 24h). Use inverse frequency class weights in CE loss.
+  - For binary answerability, oversample minority class if ratio
+    exceeds 1:3.
+
+--- INFERENCE PIPELINE (analysis/question_quality.py) ---
+
+import torch, json
+
+class QuestionQualityPredictor:
+    def __init__(self, model_path, vocab_text_path, vocab_code_path):
+        self.device = torch.device("cuda" if torch.cuda.is_available()
+                                   else "cpu")
+        self.model = QuestionQualityModel()
+        self.model.load_state_dict(torch.load(model_path,
+                                   map_location=self.device))
+        self.model.eval()
+        self.vocab_text = json.load(open(vocab_text_path))
+        self.vocab_code = json.load(open(vocab_code_path))
+
+    def predict_batch(self, questions: list[dict]) -> list[dict]:
+        """Takes list of scraped question dicts, returns predictions."""
+        # Preprocess
+        text_tensors = self._encode_text(questions)
+        code_tensors = self._encode_code(questions)
+        meta_tensors = self._encode_metadata(questions)
+
+        with torch.no_grad():
+            answerability, time_bucket = self.model(
+                text_tensors, code_tensors, meta_tensors
+            )
+
+        results = []
+        for i, q in enumerate(questions):
+            prob = answerability[i].item()
+            bucket = ["under_1h", "1h_to_24h", "1d_to_7d",
+                       "over_7d_or_never"][time_bucket[i].argmax()]
+            label = ("HIGH" if prob > 0.7
+                     else "MEDIUM" if prob > 0.4
+                     else "LOW")
+            q["answerability"] = round(prob, 3)
+            q["time_bucket"] = bucket
+            q["quality_label"] = label
+            results.append(q)
+        return results
+
+Model is loaded once in app.py at startup:
+
+  from analysis.question_quality import QuestionQualityPredictor
+
+  predictor = QuestionQualityPredictor(
+      model_path="models/question_quality.pt",
+      vocab_text_path="models/vocab_text.json",
+      vocab_code_path="models/vocab_code.json",
+  )
+  app.config["PREDICTOR"] = predictor
+
+Called in routes/scan.py after scraping:
+
+  predictor = current_app.config["PREDICTOR"]
+  questions = predictor.predict_batch(raw_questions)
+
+--- EVALUATION PLAN ---
+
+Baselines:
+  1. TF-IDF + Logistic Regression (text only)
+  2. Random Forest with handcrafted metadata features only
+  3. LSTM-only (no CNN code branch, no metadata) — ablation
+  4. CNN-only (no LSTM text branch, no metadata) — ablation
+
+Metrics:
+  - Binary answerability: Accuracy, Precision, Recall, F1, ROC-AUC
+  - Time bucket: Macro F1, Weighted F1, per-class F1
+  - Confusion matrix for both tasks
+  - Training/validation loss curves
+
+Target: minimum 75% F1 on binary answerability, outperforming
+both baselines. CNN-LSTM hybrid should outperform both ablations.
+
+--- GAP SCORE IMPLEMENTATION (UPDATED analysis/gap_score.py) ---
+
+import pandas as pd
+
+def compute_gap_scores(articles: list[dict],
+                       questions: list[dict]) -> list[dict]:
+    art_df = pd.DataFrame(articles)
+    q_df   = pd.DataFrame(questions)
+
+    # Quality-adjusted Stack Overflow signal
+    # Only count questions predicted as answerable but still unanswered
+    quality_mask = q_df["quality_label"].isin(["HIGH", "MEDIUM"])
+    unanswered_mask = q_df["answers"] == 0
+    genuine_gaps = q_df[quality_mask & unanswered_mask]
+
+    q_df["opportunity_score"] = q_df["views"] / (q_df["answers"] + 1)
+    max_opp = q_df["opportunity_score"].max() or 1
+
+    # Quality-adjusted opportunity uses only genuine gap questions
+    quality_adj_opp = (genuine_gaps["opportunity_score"].sum() / max_opp
+                       if len(genuine_gaps) > 0 else 0)
+    quality_adj_opp = min(quality_adj_opp, 1.0)
+
+    # Answerability signal: ratio of genuine gaps to total questions
+    answerability_signal = (len(genuine_gaps) / len(q_df)
+                           if len(q_df) > 0 else 0)
+
+    # Medium signals — group articles by tag (subtopic)
+    grouped = art_df.groupby("tag")
+    gaps = []
+    for tag, group in grouped:
+        sentiment_counts = group["sentiment"].value_counts()
+        n_pos = sentiment_counts.get("POSITIVE", 0)
+        n_neg = sentiment_counts.get("NEGATIVE", 0)
+        n_neu = sentiment_counts.get("NEUTRAL",  0)
+        total = len(group)
+
+        # Sentiment penalty: high negative = bigger gap
+        sentiment_penalty = ((n_neg * 1.0 + n_neu * 0.5) / total
+                            if total else 0.5)
+
+        # Quality breakdown for this tag
+        tag_questions = q_df[q_df["tags"].apply(
+            lambda t: tag.lower() in [x.lower() for x in t]
+            if isinstance(t, list) else False
+        )]
+        q_high = len(tag_questions[tag_questions["quality_label"] == "HIGH"])
+        q_med  = len(tag_questions[tag_questions["quality_label"] == "MEDIUM"])
+        q_low  = len(tag_questions[tag_questions["quality_label"] == "LOW"])
+
+        gaps.append({
+            "tag":                tag,
+            "so_signal":          quality_adj_opp,
+            "answerability_signal": answerability_signal,
+            "sentiment_penalty":  sentiment_penalty,
+            "volume_raw":         total,
+            "article_count":      total,
+            "sample_titles":      group["title"].head(5).tolist(),
+            "quality_breakdown":  {"high": q_high, "medium": q_med,
+                                   "low": q_low},
+            "n_pos": n_pos, "n_neg": n_neg, "n_neu": n_neu,
+        })
+
+    gaps_df = pd.DataFrame(gaps)
+
+    # Normalize volume penalty
+    max_vol = gaps_df["volume_raw"].max() or 1
+    gaps_df["volume_penalty"] = 1 - (gaps_df["volume_raw"] / max_vol)
+
+    # Composite gap score (UPDATED FORMULA)
+    gaps_df["gap_score"] = (
+        gaps_df["so_signal"]             * 0.50 +
+        gaps_df["sentiment_penalty"]     * 0.30 +
+        gaps_df["volume_penalty"]        * 0.10 +
+        gaps_df["answerability_signal"]  * 0.10
+    ).round(3)
+
+    # Difficulty: inverse of gap score, mapped to 1 to 5
+    gaps_df["difficulty"] = (
+        5 - (gaps_df["gap_score"] * 4)
+    ).round().astype(int).clip(1, 5)
+
+    return (gaps_df.sort_values("gap_score", ascending=False)
+            .head(5).to_dict("records"))
+
+
+================================================================
+SCRAPER SPECIFICATIONS
+================================================================
+
+Parallel execution wrapper (routes/scan.py, UPDATED):
+
+  from concurrent.futures import ThreadPoolExecutor
+  from scrapers.medium import scrape_tags
+  from scrapers.stackoverflow import scrape_tags as so_scrape_tags
+
+  def run_parallel_scrape(topics: list[str], pages: int):
+      with ThreadPoolExecutor(max_workers=2) as ex:
+          medium_future = ex.submit(scrape_tags, topics, pages)
+          so_future     = ex.submit(so_scrape_tags, topics, pages)
+          articles  = medium_future.result()
+          questions = so_future.result()
+      return articles, questions
+
+Medium scraper (scrapers/medium.py):
+  NOTE: Medium RSS does NOT include clap counts. Claps default to 0.
+
+  MEDIUM_RSS = "https://medium.com/feed/tag/{tag}"
+
+  def scrape_tag(tag: str, pages: int = 1) -> list[dict]:
+      url = MEDIUM_RSS.format(tag=tag.strip().lower())
+      try:
+          r = requests.get(url, timeout=10,
+                           headers={"User-Agent": "Mozilla/5.0"})
+          soup = BeautifulSoup(r.content, "xml")
+          return [{
+              "author":    item.find("dc:creator").text
+                           if item.find("dc:creator") else "Unknown",
+              "title":     item.title.text,
+              "url":       item.link.text,
+              "claps": 0, "responses": 0,
+              "tag": tag, "sentiment": None,
+              "confidence": None, "reason": None
+          } for item in soup.find_all("item")]
+      except Exception:
+          return []
+
+Stack Overflow scraper (scrapers/stackoverflow.py, UPDATED):
+  URL pattern:
+    https://stackoverflow.com/questions/tagged/{tag}?tab=votes&page={page}
+  NOW ALSO fetches individual question pages to extract:
+    - Body text (HTML stripped)
+    - Code blocks (<code> and <pre> tags)
+    - Tags list
+  Rate limiting: 1 second delay between question page fetches.
+  Fallback: if individual page fetch fails, body_text and
+  code_blocks default to empty.
+
+  Parses: title, body_text, code_blocks, tags, votes, answers,
+          views, has_code per question
+  Calculates: opportunity_score = views / (answers + 1)
+
+
+================================================================
+DEPENDENCIES (requirements.txt, UPDATED)
+================================================================
+
+flask==3.0.3
+requests==2.31.0
+beautifulsoup4==4.12.3
+lxml==5.2.1
+pandas==2.2.2
+google-generativeai==0.7.2
+textblob==0.18.0
+python-dotenv==1.0.1
+gunicorn==22.0.0
+
+# Deep Learning (NEW)
+torch>=2.0.0
+gensim==4.3.2              # Word2Vec / GloVe loading
+nltk==3.8.1                # Tokenization, stopwords, lemmatizer
+scikit-learn==1.4.0         # Baselines, metrics, train_test_split
+matplotlib==3.8.0           # Training curves, confusion matrix plots
+
+
+================================================================
+ENVIRONMENT VARIABLES
+================================================================
+
+GEMINI_API_KEY   = Google AI Pro key  (Render dashboard + local .env)
+SECRET_KEY       = Random string      (Render dashboard + local .env)
+FLASK_ENV        = production         (Render dashboard only)
+
+IMPORTANT: Never commit .env to git. Add to .gitignore immediately.
+
+Procfile:
+  web: gunicorn app:app
+
+
+================================================================
+BUILD PHASES
+================================================================
+
+Phase 1 — Data Collection and Preprocessing (Week 1-2)
+  - Set up Stack Exchange Data Explorer queries for bulk data
+  - Download 50K-100K questions across target tags
+  - Build preprocessing pipeline (HTML stripping, code extraction,
+    tokenization, vocabulary building)
+  - Engineer labels (accepted answer binary, time-to-answer buckets)
+  - Create train/val/test splits
+  - Store processed data as PyTorch-ready tensors
+
+Phase 2 — Model Development and Training (Week 3-4)
+  - Implement QuestionQualityModel in training/model.py
+  - Set up GloVe embeddings for text branch
+  - Implement CNN code branch with multiple kernel sizes
+  - Implement metadata feature branch
+  - Write training loop with early stopping, checkpointing
+  - Train model, log metrics per epoch
+
+Phase 3 — Baselines and Evaluation (Week 5-6)
+  - Implement TF-IDF + Logistic Regression baseline
+  - Implement Random Forest metadata baseline
+  - Run ablation studies (LSTM-only, CNN-only)
+  - Compare all models on test set
+  - Generate confusion matrices, ROC curves, training curves
+  - Document results
+
+Phase 4 — Integration with TopicPulse (Week 7-8)
+  - Build inference pipeline (analysis/question_quality.py)
+  - Update Stack Overflow scraper to extract body + code
+  - Update gap scoring formula with quality signal
+  - Load model at Flask app startup
+  - Wire quality predictions into scan pipeline
+
+Phase 5 — Dashboard and Polish (Week 9-10)
+  - Add quality badges to question cards in results.html
+  - Add quality breakdown panel
+  - Update scan summary card with quality stats
+  - Update CSV export to include quality predictions
+  - Sentiment donut chart, top questions panel
+
+Phase 6 — Testing, Deployment, Presentation (Week 11-12)
+  - End-to-end testing on diverse topics
+  - Deploy to Render, verify live URL
+  - Record demo GIF, update README
+  - Write final report with model evaluation results
+  - Prepare presentation slides
+
+Definition of Done:
+  Public URL live. Any topic typed into the input returns 5 ranked
+  content gaps in under 25 seconds, with quality predictions on
+  every Stack Overflow question. The deep learning model achieves
+  at least 75% F1 on the test set and demonstrably improves gap
+  recommendation quality over the non-DL baseline. Clicking any
+  gap generates a full brief in under 8 seconds. README has a
+  demo GIF showing the full flow including quality badges.
+
+================================================================
+END OF DOCUMENT
+================================================================
