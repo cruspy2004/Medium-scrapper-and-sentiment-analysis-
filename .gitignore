@@ -6,3 +6,9 @@ env/
 .DS_Store
 *.csv
 output/
+
+# v3: Model weights and training data
+models/*.pt
+models/eval/
+data/
+
