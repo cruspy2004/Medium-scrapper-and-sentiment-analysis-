@@ -19,8 +19,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Initialize sentiment chart
+    // Initialize charts
     initSentimentChart();
+    initQualityChart();
 });
 
 
@@ -240,3 +241,53 @@ function initSentimentChart() {
         console.error('Chart init error:', e);
     }
 }
+
+
+// ========================
+// v3: Quality Donut Chart
+// ========================
+
+function initQualityChart() {
+    const dataEl = document.getElementById('qualityData');
+    if (!dataEl) return;
+
+    try {
+        const data = JSON.parse(dataEl.textContent);
+        const ctx = document.getElementById('qualityChart');
+        if (!ctx) return;
+
+        new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: ['High', 'Medium', 'Low'],
+                datasets: [{
+                    data: [data.high || 0, data.medium || 0, data.low || 0],
+                    backgroundColor: ['#10b981', '#fbbf24', '#ef4444'],
+                    borderWidth: 0,
+                    borderRadius: 4,
+                    spacing: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '72%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 15, 15, 0.95)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
+                        titleFont: { family: 'Inter' },
+                        bodyFont: { family: 'Inter' },
+                        padding: 12,
+                        cornerRadius: 8
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Quality chart init error:', e);
+    }
+}
+

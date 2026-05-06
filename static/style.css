@@ -920,3 +920,123 @@ a:hover { color: #a5b4fc; }
     box-shadow: var(--shadow-lg);
 }
 .llm-summary { color: var(--text); line-height: 1.6; }
+
+
+/* ============================
+   v3 QUALITY BADGES & PANELS
+   ============================ */
+.quality-badge-high {
+    background: var(--positive-bg);
+    color: var(--positive);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.quality-badge-medium {
+    background: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.quality-badge-low {
+    background: var(--negative-bg);
+    color: var(--negative);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.quality-panel { }
+
+.quality-donut-container {
+    position: relative;
+    height: 150px;
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+
+.quality-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+}
+
+.quality-dot-high { background: var(--positive); }
+.quality-dot-medium { background: #fbbf24; }
+.quality-dot-low { background: var(--negative); }
+
+.quality-filter-note {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+}
+
+.quality-passed-value {
+    color: var(--positive) !important;
+    font-size: 1.2rem !important;
+}
+
+.quality-meta {
+    color: var(--positive);
+    font-weight: 500;
+}
+
+/* Quality mini-bar on gap cards */
+.quality-mini-bar {
+    margin-bottom: 0.75rem;
+}
+
+.quality-bar-track {
+    display: flex;
+    height: 6px;
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+    margin-bottom: 4px;
+}
+
+.quality-bar-seg {
+    height: 100%;
+    transition: width 0.6s ease;
+}
+
+.quality-bar-seg.quality-high { background: var(--positive); }
+.quality-bar-seg.quality-medium { background: #fbbf24; }
+.quality-bar-seg.quality-low { background: var(--negative); }
+
+.quality-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+}
+
+.qbl-high { color: var(--positive); }
+.qbl-medium { color: #fbbf24; }
+.qbl-low { color: var(--negative); }
+
+/* Summary bar adjustment for 5 items */
+.summary-bar {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 768px) {
+    .summary-bar { grid-template-columns: repeat(2, 1fr); }
+}
+

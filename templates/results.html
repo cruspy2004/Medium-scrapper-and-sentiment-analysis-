@@ -49,6 +49,11 @@
                 <span class="summary-value">{{ gaps[0].gap_score if gaps else 'N/A' }}</span>
                 <span class="summary-label">Top Gap Score</span>
             </div>
+            <!-- v3: Quality filter stat -->
+            <div class="summary-stat">
+                <span class="summary-value quality-passed-value">{{ quality_passed|default(0) }}/{{ total_questions }}</span>
+                <span class="summary-label">Quality Passed</span>
+            </div>
         </div>
 
         <!-- Main Content Grid -->
@@ -66,6 +71,9 @@
                                 <div class="gap-meta">
                                     {{ gap.article_count }} articles &bull; 
                                     <span class="sentiment-{{ gap.sentiment_signal|lower }}">{{ gap.sentiment_signal }}</span> sentiment
+                                    {% if gap.quality_breakdown %}
+                                    &bull; <span class="quality-meta">{{ gap.quality_breakdown.high + gap.quality_breakdown.medium }} well-formed Q's</span>
+                                    {% endif %}
                                 </div>
                             </div>
                             <div class="gap-score-badge">
@@ -92,6 +100,25 @@
                                     <span class="signal-value">{{ gap.difficulty }}/5</span>
                                 </div>
                             </div>
+                            <!-- v3: Quality breakdown bar -->
+                            {% if gap.quality_breakdown %}
+                            <div class="quality-mini-bar">
+                                {% set qb = gap.quality_breakdown %}
+                                {% set qtotal = qb.high + qb.medium + qb.low %}
+                                {% if qtotal > 0 %}
+                                <div class="quality-bar-track">
+                                    <div class="quality-bar-seg quality-high" style="width: {{ (qb.high / qtotal * 100)|round }}%"></div>
+                                    <div class="quality-bar-seg quality-medium" style="width: {{ (qb.medium / qtotal * 100)|round }}%"></div>
+                                    <div class="quality-bar-seg quality-low" style="width: {{ (qb.low / qtotal * 100)|round }}%"></div>
+                                </div>
+                                <div class="quality-bar-labels">
+                                    <span class="qbl-high">{{ qb.high }} HIGH</span>
+                                    <span class="qbl-medium">{{ qb.medium }} MED</span>
+                                    <span class="qbl-low">{{ qb.low }} LOW</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                             <button class="btn btn-brief" onclick="loadBrief({{ loop.index0 }})">
                                 Generate Brief →
                             </button>
@@ -120,6 +147,22 @@
                     </div>
                 </div>
 
+                <!-- v3: Question Quality Panel -->
+                <div class="card sidebar-card quality-panel">
+                    <h3>Question Quality</h3>
+                    <div class="quality-donut-container">
+                        <canvas id="qualityChart"></canvas>
+                    </div>
+                    <div class="quality-legend">
+                        <span class="legend-item"><span class="legend-dot quality-dot-high"></span> High: {{ quality_summary.high|default(0) }}</span>
+                        <span class="legend-item"><span class="legend-dot quality-dot-medium"></span> Medium: {{ quality_summary.medium|default(0) }}</span>
+                        <span class="legend-item"><span class="legend-dot quality-dot-low"></span> Low: {{ quality_summary.low|default(0) }}</span>
+                    </div>
+                    <p class="quality-filter-note">
+                        {{ quality_passed|default(0) }} of {{ total_questions }} questions passed quality threshold
+                    </p>
+                </div>
+
                 <!-- Top SO Questions -->
                 <div class="card sidebar-card">
                     <h3>Top Unanswered Questions</h3>
@@ -132,6 +175,10 @@
                                     <span>{{ q.views|default(0) }} views</span>
                                     <span>{{ q.answers|default(0) }} answers</span>
                                     <span class="opp-score">{{ q.opportunity_score|default(0) }} opp</span>
+                                    <!-- v3: Quality badge -->
+                                    {% if q.quality_label is defined and q.quality_label %}
+                                    <span class="badge quality-badge-{{ q.quality_label|lower }}">{{ q.quality_label }}</span>
+                                    {% endif %}
                                 </div>
                             </li>
                         {% endfor %}
@@ -163,6 +210,9 @@
     </script>
     <script id="chartData" type="application/json">
         {{ sentiment_summary|tojson }}
+    </script>
+    <script id="qualityData" type="application/json">
+        {{ quality_summary|tojson }}
     </script>
     {% endif %}
     <script src="{{ url_for('static', filename='app.js') }}"></script>
